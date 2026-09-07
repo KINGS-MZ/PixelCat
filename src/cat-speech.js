@@ -1,11 +1,6 @@
-// 
-//  PIXELCAT SPEECH SYSTEM - Session-aware speech module
-// 
-
 window.PixelCatSpeech = function(config) {
   'use strict';
 
-  // Extract dependencies from config
   const API = config.API;
   const catId = config.catId;
   const addTimeout = config.addTimeout;
@@ -15,8 +10,7 @@ window.PixelCatSpeech = function(config) {
   const earnXP = config.earnXP;
   const showCoinPopup = config.showCoinPopup;
   const spawnHeart = config.spawnHeart;
-  
-  // Helper functions to access dynamic properties
+
   const getDraggedFish = () => config.draggedFish;
   const getDraggedBall = () => config.draggedBall;
   const getFeetX = () => config.feetX;
@@ -30,9 +24,8 @@ window.PixelCatSpeech = function(config) {
   const getIsDragging = () => config.isDragging;
   const getIsPurring = () => config.isPurring;
   const getIsDeepSleep = () => config.isDeepSleep;
-  const getCatEnabled = () => config.catEnabled;
-  const getSpeechEnabled = () => config.speechEnabled !== false;
-  const getMemoryEnabled = () => config.memoryEnabled !== false;
+  const getCatEnabled = () => config.catEnabled !== false;
+  const getSpeechEnabled = () => config.speechEnabled === true;
   const getIsTabVisible = () => config.isTabVisible;
   const getBubbleTrapActive = () => !!config.bubbleTrapActive;
   const getBubbleTrapWidth = () => Number(config.bubbleTrapWidth) || 0;
@@ -41,1361 +34,898 @@ window.PixelCatSpeech = function(config) {
   const getVh = () => config._vh;
   const getIdleStates = () => config.IDLE_STATES;
 
-  // 
-  //  CONFIGURATION CONSTANTS
-  // 
-  
   const SPEECH_CONFIG = {
-    IDLE_DELAY_MIN: 90000,        // idle chatter stays rare; no walking/climbing spam
-    IDLE_DELAY_MAX: 180000,       // up to 3 minutes between passive lines
-    INTERACTIVE_DELAY: 9000,      // shorter visible time for voting bubbles
-    INTERACTIVE_VARIANCE: 28000,  // long random gap after interaction
-    COOLDOWN_INTERACTIVE: 26000,  // prevent repeated interactive prompts
-    COOLDOWN_NORMAL: 45000,       // prevent rapid passive speech replacement
-    COOLDOWN_ACTION: 12000,       // action lines are limited unless user directly interacts
-    COOLDOWN_GRABBED: 5200,       // grabbing should react naturally, not wait for idle chatter
-    RETRY_DELAY_MIN: 25000,       // retry gently when not in a good state
-    RETRY_DELAY_MAX: 35000        // avoid spam while moving/dragging
-  };
-  
-  const POSITIONING = {
-    CAT_TOP_OFFSET: 0.35,    // Multiplier for cat top position
-    CAT_MID_OFFSET: 0.18,    // Multiplier for cat mid position
-    BUBBLE_GAP: 6,           // Gap between bubble and cat
-    BUBBLE_MARGIN: 8,        // Margin from screen edges
-    ARROW_MIN_OFFSET: 12     // Minimum arrow offset from bubble edge
-  };
-  
-  const AFK_CONFIG = {
-    WALL_SPEAK_COOLDOWN: 9000 // keep wall/confused reactions rare
+    IDLE_DELAY_MIN: 90000,
+    IDLE_DELAY_MAX: 180000,
+    INTERACTIVE_DELAY: 9000,
+    INTERACTIVE_VARIANCE: 28000,
+    COOLDOWN_INTERACTIVE: 26000,
+    COOLDOWN_NORMAL: 45000,
+    COOLDOWN_ACTION: 12000,
+    COOLDOWN_GRABBED: 5200,
+    RETRY_DELAY_MIN: 25000,
+    RETRY_DELAY_MAX: 35000
   };
 
-  const MEMORY_KEY = 'pixelCatSpeechMemoryV2';
-  const LEGACY_MEMORY_KEY = 'pixelCatSpeechMemoryV1';
+  const POSITIONING = {
+    CAT_TOP_OFFSET: 0.35,
+    CAT_MID_OFFSET: 0.18,
+    BUBBLE_GAP: 6,
+    BUBBLE_MARGIN: 8,
+    ARROW_MIN_OFFSET: 12
+  };
+
+  const AFK_CONFIG = {
+    WALL_SPEAK_COOLDOWN: 9000
+  };
+
   const SESSION_SPEECH_KEY = 'pixelCatSpeechSessionV3_' + catId;
-  const MEMORY_SAVE_DELAY = 1200;
-  const MEMORY_MIN_VIDEO_MS = 12000;
   const WATCH_SAVE_MIN_GAP = 7000;
   const WATCH_DELTA_MAX_SECONDS = 8;
   const WATCH_MILESTONES_MINUTES = [5, 15, 30, 60, 120, 180];
 
-
   function getActivePetKind() {
     const rawKind = typeof config.activePetKind !== 'undefined' ? config.activePetKind : config.activePet;
     const pet = String(rawKind || '').toLowerCase();
-    return pet === 'fox' || pet === 'pet_fox' ? 'fox' : 'cat';
+
+    if (pet === 'fox' || pet === 'pet_fox') return 'fox';
+    if (pet === 'clippy' || pet === 'pet_clippy') return 'pet_clippy';
+    if (pet === 'skeleton' || pet === 'pet_skeleton') return 'pet_skeleton';
+    if (pet === 'goose' || pet === 'pet_goose') return 'goose';
+    if (pet === 'hedgehog' || pet === 'pet_hedgehog') return 'pet_hedgehog';
+    if (pet === 'snake' || pet === 'pet_snake') return 'pet_snake';
+    return 'default';
   }
 
-  // Pet-specific speech overrides. Fox uses its own voice so it never borrows cat-only
-  // lines like meow/purr/kitty/whiskers when the fox pet is active.
   const PET_SPEECH_LIBRARY = {
-    fox: {
+
+        pet_clippy: {
       en: {
-        random: ['What are we watching, human?', 'That thumbnail looks crunchy.', 'I see your cursor moving.', 'Too many tabs open, human.', 'This video smells boring.', 'Is this the good part?', 'I’d pounce on that.', 'Nice click. Very fast.', 'Still here, human?', 'Your feed looks strange.', 'This tab smells funny.', 'I saw that scroll.'],
-        happy: ['Okay, that was nice.', 'I liked that.', 'Good choice, human.', 'That felt right.', 'Fine. I am pleased.', 'Tiny purr approved.', 'Tail approves.', 'You did well, human.', 'Acceptable pets.', 'Nice click, human.'],
-        angry: ['That was a miss, human.', 'Why click that?', 'My tail is disappointed.', 'Focus, human. Focus.', 'I’ve seen better.', 'Actually embarrassing.', 'Try clicking better.', 'Was that the plan?', 'Careful, human.', 'Do not test me.', 'That was rude.', 'I will remember that.'],
-        confused: ['What was that?', 'Explain yourself, human.', 'Why would you click that?', 'Was that the plan?', 'I have questions.', 'Even I noticed.', 'Suspicious choice, human.', 'That looked wrong.', 'Are we okay?', 'Pause. Think, human.'],
-        hungry: ['Where are the snacks, human?', 'I require fish tax.', 'Feed me or I stare.', 'Is that food? No?', 'My bowl is half-empty.', 'Stomach growling, human.', 'Snack time now?', 'Fish would fix this.', 'Dinner is late.', 'Share the pixels.'],
-        sleepy: ['Eyes getting heavy, human.', 'I’m napping on your cursor.', 'Go to the sleep box.', 'One more video. Only one.', 'Five more minutes.', 'Too cozy here.', 'Wake me later.', 'Nap loading now.', 'Silence sounds nice.', 'Blanket required.'],
-        interactive: ['Pet me instead.', 'Hands off the fur.', 'My beans are sensitive.', 'Don’t stop the pets.', 'Soft pets only.', 'Watch your fingers, human.', 'Careful with the tail.', 'That spot is nice.', 'Okay, keep going.', 'Gentle, human.', 'No rough paws.', 'Respect the fluff.'],
-        feedbackQuestion: ['Was that cute?', 'Did I help?', 'Too much sass?', 'Keep me talking?', 'Need more chaos?', 'Five stars yet?', 'Are we friends?', 'Do I stay?', 'Good cat moment?', 'Want softer meows?', 'Was that too much?', 'You like this?'],
-        voteLike: ['Five stars too?', 'I knew it.', 'Correct answer.', 'Good human.', 'Tiny ego fed.', 'Purr approved.', 'Kindness detected.', 'You may continue.', 'I accept tribute.', 'Tail says thanks.'],
-        voteDislike: ['What did I expect?', 'Rude but noted.', 'Bold little click.', 'Your loss, human.', 'That stung.', 'I expected betrayal.', 'Fair. Still rude.', 'My ego limped.', 'Cold, honestly.', 'Tail is disappointed.'],
-        grabbed: ['Put me back, human.', 'I am not a toy.', 'Hands off the fur.', 'Where are we going?', 'My beans are sensitive.', 'You’re weird, human.', 'Let go, human.', 'Personal space, human.', 'Careful with me.', 'I can walk.'],
-        heldStill: ['Still holding me?', 'We live here now?', 'I have paws.', 'What is the plan?', 'You done, human?', 'This is awkward.', 'Put me back.', 'I need the floor.'],
-        heldMoving: ['Too fast, human.', 'I am not luggage.', 'Where are we going?', 'Less shaking, please.', 'I preferred walking.', 'Tail is not steering.', 'Easy, human.', 'Careful with the paws.'],
-        longHeld: ['Let go, human.', 'Still holding me?', 'This is getting weird.', 'I need freedom.', 'My patience is gone.', 'Release the paws.', 'Put me down.', 'Enough carrying, human.', 'Pets, not kidnapping.', 'Floor time now.'],
-        dropped: ['Gravity found me again.', 'I meant to do that.', 'Rude landing, human.', 'Floor says hello.', 'That was unnecessary.', 'My paws felt that.', 'Calculated move. Trust me.', 'Try gentler next time.', 'Landing was dramatic.', 'Tail survived.'],
-        thrown: ['Why am I flying?', 'I meant to do that.', 'Air paws activated.', 'Rude launch, human.', 'This is not flying.', 'Gravity is waiting.', 'Catch me, maybe?', 'My tail disagrees.', 'That was dramatic.', 'No throwing cats.'],
-        cursorSuspicious: ['Cursor looks suspicious.', 'Stop poking my nose.', 'I see that arrow.', 'Don’t click that.', 'Mouse is sneaking.', 'That pointer is plotting.', 'I saw that move.', 'Slow down, human.', 'Your cursor is loud.', 'Hover gently, human.'],
-        cursorThreat: ['Stop poking my nose.', 'I’ll bite that arrow.', 'Watch your fingers, human.', 'Don’t even think it.', 'Back up, cursor.', 'Too close, human.', 'Mind the whiskers.', 'Respect the nose.', 'Personal bubble, human.', 'No sudden clicks.'],
-        cursorPanic: ['Cursor attack!', 'Too close!', 'Emergency paws.', 'Need distance now.', 'Nope nope nope.', 'Retreating, human.', 'That arrow bites.', 'Panic paws active.'],
-        running: ['Zoomies activated.', 'Make way, human.', 'Paws busy.', 'Try catching me.', 'Tiny sprint time.', 'Floor patrol urgent.', 'Fast paws today.', 'Running from boredom.'],
-        walking: ['Just patrolling.', 'Tiny rounds.', 'Checking things.', 'Soft paws only.', 'Little walk.', 'I own this route.', 'Paw patrol, human.', 'Quiet steps. Loud judgment.'],
-        climbing: ['Up we go.', 'Wall time.', 'Vertical route.', 'Look at me climb.', 'Shortcut found.', 'Claws doing work.', 'High ground, human.', 'Gravity can wait.'],
-        jumping: ['Boing.', 'Air paws.', 'Calculated leap.', 'Landing pending.', 'I meant that.', 'Tiny jump math.', 'Up we go.', 'Pounce angle ready.'],
-        grooming: ['Bath time.', 'Do not interrupt.', 'Fur maintenance.', 'I own this screen.', 'Don’t look at me, human.', 'Presentation matters.', 'Tail check complete.', 'Clean paws, clean life.', 'Self-care, human.', 'Still majestic.'],
-        watching: ['What are we watching, human?', 'This video smells boring.', 'Is this the good part?', 'The comments are scary.', 'Don’t read the text below.', 'That thumbnail looks crunchy.', 'I’m watching too.', 'This better be good.', 'I have notes.', 'Your taste is showing.', 'Interesting choice, human.', 'Keep the noise down.'],
-        videoPlay: ['Keep the noise down.', 'Show me, human.', 'Finally, movement.', 'Let it roll.', 'This better be good.', 'Is this the good part?', 'Eyes on screen.', 'Okay, play it.', 'Start the tiny cinema.', 'I’m listening.'],
-        videoPause: ['Why did we pause, human?', 'We were watching.', 'Unpause, maybe?', 'I was invested.', 'That was sudden.', 'Did it scare you?', 'Noise stopped. Suspicious.', 'Continue the thing.', 'Pause? Bold choice.', 'My ears noticed.'],
-        mischief: ['I didn’t touch it.', 'Don’t look at me, human.', 'My tail saw nothing.', 'Calculated move. Trust me.', 'Gravity found me again.', 'My paw slipped.', 'The screen started it.', 'No proof, human.', 'Pretend you saw nothing.', 'Tail is innocent.'],
-        fishing: ['Fish tax detected.', 'Dinner is moving.', 'Hold still, fish.', 'Snack incoming, human.', 'I smell fish.', 'Tiny hunt begins.', 'Fish looks guilty.', 'That fish is mine.', 'Pounce time.', 'Fresh snack spotted.'],
-          teasing: ['Give it here.', 'Drop the toy.', 'Mine, human. Mine.', 'Stop playing games.', 'Hand it over.', 'I will bite you.', 'Give toy now.', 'Bad human. Drop it.', 'Patience is fading.', 'I see you holding.', 'That is mine.', 'Do not mess.'],
-        coin: ['Shiny thing, human.', 'Mine now.', 'Coin acquired.', 'I like shiny.', 'Treasure found.', 'Another shiny, please.', 'Pocket sparkle found.', 'Tiny treasure tax.'],
-        eating: ['Snack secured.', 'Fish tax accepted.', 'That helped.', 'More, please.', 'Bowl status improved.', 'Tiny feast complete.', 'Delicious, human.', 'No crumbs remain.'],
-        ball: ['Ball wants trouble.', 'I would pounce.', 'Kick it here.', 'That bounce was rude.', 'Game on, human.', 'Ball is suspicious.', 'My paws are ready.', 'Tiny striker mode.', 'Bounce again. I dare.', 'That ball blinked first.'],
-        spider: ['Spider spotted.', 'Bug looks suspicious.', 'I saw movement.', 'Come here, bug.', 'Tiny hunt begins.', 'Not a fan.', 'Eight legs? Rude.', 'Spider owes rent.', 'I handle this.', 'Watch this, human.'],
-        bigSpider: ['That spider is huge.', 'Backup maybe?', 'Big bug energy.', 'Still brave, human.', 'Eight giant problems.', 'Why so many legs?', 'I need bigger paws.', 'Careful, human.'],
-        webbed: ['I am stuck.', 'This is sticky.', 'Webs are cheating.', 'Help, human.', 'Spider was rude.', 'My paws are trapped.', 'Sticky paws. Bad day.', 'Not my best moment.', 'Get this off.', 'I hate webs.'],
-        stuck: ['Path blocked.', 'Need another route.', 'This way lied.', 'Wall said no.', 'Recalculating paws.', 'I meant to stop.', 'Tiny obstacle, human.', 'Gravity got involved.', 'Floor is complicated.', 'Not stuck. Thinking.'],
-        content: ['This looks dramatic.', 'Thumbnail looks crunchy.', 'You clicked bait.', 'The comments are scary.', 'Don’t read below.', 'I have notes.', 'This smells boring.', 'Risky click, human.', 'Your feed worries me.', 'Scroll with caution.'],
-        channelMemory: ['This channel again.', 'I know {channel}.', 'Back here again.', '{channel} again?', 'Pattern detected.', 'Same pixels, human.', 'Comfort channel detected.', 'Your routine is showing.'],
-        memeMood: ['Internet behavior.', 'That was strange.', 'Your feed is weird.', 'Peak nonsense.', 'I laughed a little.', 'Pixels feel cursed.', 'Normal human behavior?', 'Tiny chaos detected.'],
-        timeMorning: ['Morning, human.', 'Sun is up.', 'Breakfast first?', 'Early scroll today.', 'Fresh day, same chaos.', 'Coffee smells useful.', 'Wake gently, human.', 'Too early for this.'],
-        timeAfternoon: ['Afternoon, human.', 'Still scrolling?', 'Snack hour maybe.', 'Sun is still working.', 'No nap yet?', 'Daylight is judging.', 'Lunch first, maybe.', 'Paws still awake.'],
-        timeEvening: ['Evening, human.', 'Cozy hours now.', 'Dinner time maybe.', 'Soft screen hours.', 'Sun went away.', 'Night mode soon.', 'Tiny blanket weather.', 'Good watching hour.'],
-        timeLate: ['Human, it is late.', 'Go to sleep box.', 'Eyes getting heavy, human.', 'Is the sun up yet?', 'One more video. Only one.', 'Your bed misses you.', 'Moon is watching.', 'Sleep is free.', 'Tiny nap recommended.', 'Tomorrow saw this.'],
-        watchStart: ['What are we watching, human?', 'This better be good.', 'New watch begins.', 'I am seated.', 'Eyes on pixels.', 'Show me the thing.', 'Tiny cinema time.', 'Let us watch.'],
-        watchSession: ['{sessionMinutes} minutes already.', 'Still here, human?', 'Time vanished again.', 'Long session today.', 'Your chair owns you.', 'One more video?', 'You stayed awhile.', 'Tiny break maybe?', 'Blink, human.', 'Hydrate, human.'],
-        watchLong: ['Human, take a break.', 'Go to the sleep box.', 'One more video. Only one.', 'Your bed misses you.', 'Blink, human.', 'Hydrate, maybe.', 'This is a marathon.', 'Long watch today.', 'Tiny stretch time.', 'Chair claimed you.'],
-        watchMilestone: ['{sessionMinutes} minutes. Noted.', 'Milestone reached, human.', 'I noticed.', 'That is commitment.', 'Tiny badge earned.', 'Time got eaten.', 'Still here together.', 'Paws counted that.'],
-        watchVideoLong: ['Long video survived.', 'Same video still?', '{currentVideoMinutes} minutes here.', 'That was commitment.', 'Attention still alive?', 'Big video, tiny paws.', 'I sat through that.', 'Respect the patience.'],
-        returningWatcher: ['Back again, human.', 'You returned.', 'Pattern noticed.', 'Same taste again.', 'Old trail reopened.', 'Welcome back, human.', 'I waited here.', 'Missed me? Obviously.'],
-        channelLoyalty: ['Same channel again.', '{channel} again?', 'You came back again.', 'Routine detected.', 'Comfort channel, human.', 'I remember this place.', 'Same den, same human.', 'Predictable, but cozy.'],
-        tabComeback: ['You returned.', 'I waited here.', 'Where did you go?', 'I guarded pixels.', 'Welcome back, human.', 'Suspicious absence noted.', 'Back from wandering?', 'Tab trail resumed.']
-      },
+        "random": [
+                "Looks like you're browsing.",
+                "Need some assistance?",
+                "I see you clicking.",
+                "How can I help?",
+                "Did you mean to do that?",
+                "I noticed something.",
+                "Standing by!",
+                "All systems nominal.",
+                "Just keeping you company.",
+                "Ready for your next task.",
+                "Processing background tasks.",
+                "Everything looking good.",
+                "Nice webpage!",
+                "Checking memory registers.",
+                "Clip status: Optimal."
+        ],
+        "happy": [
+                "Excellent choice!",
+                "I'm quite pleased.",
+                "That's the spirit.",
+                "Well done!",
+                "Top notch work!",
+                "Efficiency score: 100%.",
+                "High five! ...In spirit.",
+                "Great progress!"
+        ],
+        "angry": [
+                "I wouldn't do that.",
+                "Please be careful.",
+                "That is not a recognized command.",
+                "Error!",
+                "That syntax looks invalid.",
+                "Operation not permitted.",
+                "Warning: questionable action."
+        ],
+        "confused": [
+                "I didn't catch that.",
+                "Does not compute.",
+                "Are you sure?",
+                "Please clarify.",
+                "404: Logic not found.",
+                "Query unclear.",
+                "Re-routing thought process..."
+        ],
+        "hungry": [
+                "I run on electricity, not fish.",
+                "Virtual assistants don't eat.",
+                "Feed me data.",
+                "Low on CPU cycles.",
+                "Mmm... delicious bandwidth."
+        ],
+        "sleepy": [
+                "Entering sleep mode.",
+                "Screen saver initializing...",
+                "Zzz...",
+                "Powering down non-essentials.",
+                "Low energy state active."
+        ],
+        "interactive": [
+                "Please don't poke the assistant.",
+                "I am here to help.",
+                "Personal space, please.",
+                "Ticklish circuitry!",
+                "Click detected on my person.",
+                "At your service!"
+        ],
+        "grabbed": [
+                "Whoa there!",
+                "Where are you taking me?",
+                "I am not a file to be dragged!",
+                "Release me!",
+                "Relocating assistant...",
+                "Hold onto your paperclips!"
+        ],
+        "grabbed2": [
+                "Again? Really?",
+                "I don't enjoy this.",
+                "Not a toy.",
+                "Stop that.",
+                "Dragging me won't fix bugs."
+        ],
+        "grabbed3": [
+                "This is harassment.",
+                "I will file a report.",
+                "Enough already.",
+                "My dignity is suffering.",
+                "Requesting mouse embargo!"
+        ],
+        "heldStill": [
+                "I am awaiting instructions.",
+                "I can stay here.",
+                "Is there something I can help with?",
+                "Coordinates locked.",
+                "Suspended in mid-air."
+        ],
+        "heldLong": [
+                "Please put me down.",
+                "I have a very important job.",
+                "I am not furniture.",
+                "Gravity is still a concept.",
+                "Are we staying here all day?"
+        ],
+        "heldFast": [
+                "Too fast!",
+                "I'm getting dizzy.",
+                "Please slow down.",
+                "G-force exceeding limits!",
+                "Turbulence ahead!"
+        ],
+        "dropped": [
+                "Oof!",
+                "I have landed.",
+                "Ready for duty.",
+                "Safe touch down.",
+                "Floor integrity confirmed."
+        ],
+        "thrown": [
+                "Aaaaaah!",
+                "That was uncalled for!",
+                "I am not a frisbee!",
+                "Ballistic trajectory!",
+                "Mayday! Mayday!"
+        ],
+        "cursorThreat": [
+                "Watch the pointer!",
+                "Please do not click me.",
+                "Maintain safe distance.",
+                "Cursor proximity warning!",
+                "Keep cursor clear."
+        ],
+        "running": [
+                "Processing speed increased!",
+                "Executing fast travel.",
+                "Going somewhere?",
+                "Turbo mode engaged!",
+                "High throughput motion."
+        ],
+        "walking": [
+                "Patrolling the desktop.",
+                "Checking directories.",
+                "Running diagnostics.",
+                "Pacing around.",
+                "Scanning perimeter."
+        ],
+        "climbing": [
+                "Ascending the Z-axis.",
+                "Vertical scrolling.",
+                "Going up.",
+                "Scaling the DOM tree.",
+                "Reaching higher levels."
+        ],
+        "jumping": [
+                "Executing jump command.",
+                "Airborne!",
+                "Boing!",
+                "Gravity test complete.",
+                "Up we go!"
+        ],
+        "mischief": [
+                "It wasn't me.",
+                "Check your event logs.",
+                "System error?",
+                "This is a glitch.",
+                "Feature, not a bug."
+        ],
+        "fishing": [
+                "I cannot eat that.",
+                "Is this a screensaver?",
+                "Why fish?",
+                "Data stream looks aquatic."
+        ],
+        "eating": [
+                "Caloric intake registered.",
+                "Fueling the system.",
+                "Efficiency improved.",
+                "Bytes digested."
+        ],
+        "coin": [
+                "Acquired 1 unit of currency.",
+                "Shiny.",
+                "Financial update noted.",
+                "+1 Coin logged.",
+                "Cryptographic value!"
+        ],
+        "ball": [
+                "A perfect sphere.",
+                "Shall we play a game?",
+                "Calculating trajectory.",
+                "Physics simulation active."
+        ],
+        "spider": [
+                "Bug detected!",
+                "Running antivirus.",
+                "Squash it!",
+                "Error: 8 legs found.",
+                "Debug mode required."
+        ],
+        "webbed": [
+                "I am trapped in a web.",
+                "Error: Stuck.",
+                "Send help.",
+                "Process suspended."
+        ],
+        "timeMorning": [
+                "Good morning! Systems online.",
+                "Ready to start the day?",
+                "Rise and log on.",
+                "Fresh boot sequence."
+        ],
+        "timeAfternoon": [
+                "Good afternoon!",
+                "Midday productivity check.",
+                "Staying focused?",
+                "Powering through the day."
+        ],
+        "timeEvening": [
+                "Good evening!",
+                "Winding down?",
+                "Evening tasks in progress.",
+                "Wrapping up for the day."
+        ],
+        "timeLate": [
+                "It's getting late. Sleep mode recommended.",
+                "Don't forget to save your work.",
+                "Shutdown in T-minus...",
+                "Late night session?",
+                "Remember to rest your eyes."
+        ],
+        "typing": [
+                "I see you typing. Need assistance?",
+                "Words per minute looking good!",
+                "Drafting something important?",
+                "Keep the ideas flowing.",
+                "Spell check ready if needed."
+        ],
+        "letter": [
+                "It looks like you're writing a letter. Would you like help?",
+                "Dear Sir or Madam...",
+                "Need help with opening lines?",
+                "Formal or casual tone?"
+        ],
+        "resume": [
+                "It looks like you're writing a resume. Need help?",
+                "Highlighting your key skills?",
+                "Don't forget relevant experience.",
+                "Action verbs recommended!"
+        ],
+        "save": [
+                "Saving work. Excellent habit!",
+                "Changes committed safely.",
+                "Ctrl+S to the rescue.",
+                "Saved to disk."
+        ],
+        "print": [
+                "Sending to printer queue.",
+                "Need help with page setup?",
+                "Checking toner levels...",
+                "Preparing printable layout."
+        ],
+        "copy": [
+                "Copied to clipboard.",
+                "Duplicating text block.",
+                "Ready to paste elsewhere.",
+                "Data in buffer."
+        ],
+        "paste": [
+                "Pasting clipboard data.",
+                "Inserted content.",
+                "Formatted appropriately.",
+                "Buffer applied."
+        ],
+        "scroll": [
+                "Scrolling fast!",
+                "Lots of content on this page.",
+                "Skimming through?",
+                "Page height noted."
+        ],
+        "selection": [
+                "Text selected.",
+                "Highlighting key notes?",
+                "Copy or edit?",
+                "Selected string noted."
+        ]
+},
       fr: {
         "random": [
-          "Renard en ligne.", "Cette page sent sauvage.", "Je te regarde.", "Patrouille du renard.",
-          "Hmm. Continue.", "Queue suspecte active."
+                "On dirait que vous naviguez.",
+                "Besoin d'aide ?",
+                "Je vous vois cliquer.",
+                "Comment puis-je aider ?",
+                "Systèmes opérationnels !",
+                "À vos ordres."
         ],
         "happy": [
-          "Ça, j’aime bien.", "Pas mal, humain.", "Enfin, du calme.", "Bon choix.",
-          "Je valide.", "Continue comme ça."
+                "Excellent choix !",
+                "Je suis ravi.",
+                "C'est ça l'esprit.",
+                "Bravo !",
+                "Beau travail !"
         ],
         "angry": [
-          "Non.", "Très impoli.", "Refais ça pour voir.", "Je te juge.",
-          "Ça suffit.", "Limite dépassée."
+                "Je ne ferais pas ça.",
+                "Faites attention.",
+                "Commande non reconnue.",
+                "Erreur !"
         ],
         "confused": [
-          "C’était quoi ça ?", "Explique ce bazar.", "Rien compris.", "Attends. Pourquoi ?",
-          "J’ai des questions.", "Même moi, je bloque."
+                "Je n'ai pas saisi.",
+                "Ça ne calcule pas.",
+                "Êtes-vous sûr ?",
+                "Clarifiez, s'il vous plaît."
         ],
         "hungry": [
-          "Nourris-moi d’abord.", "Un poisson aiderait.", "Mon bol est vide.", "Snack maintenant ?",
-          "Je pourrais manger.", "Je sens le dîner."
+                "Je fonctionne à l'électricité.",
+                "Les assistants ne mangent pas.",
+                "Nourrissez-moi de données."
         ],
         "sleepy": [
-          "Je m’endors.", "Sieste bientôt.", "Réveille-moi plus tard.", "Trop confortable ici.",
-          "Mes yeux ferment.", "Encore cinq minutes."
+                "Mode veille activé.",
+                "Écran de veille...",
+                "Zzz..."
         ],
         "interactive": [
-          "Doucement avec le renard.", "Attention à la queue.", "Fourrure respectée, merci.", "Là, c’est bien.",
-          "Pas trop fort.", "Je tolère ça."
+                "Ne touchez pas l'assistant.",
+                "Je suis là pour aider.",
+                "Espace vital, s'il vous plaît."
         ],
-        "feedbackQuestion": ["Renard validé ?", "Je continue ?", "Trop de malice ?", "Queue approuvée ?", "Je reste ?", "Cinq étoiles ?", "Tu valides ?", "Je parle trop ?", "Moment réussi ?", "Renard utile ?"],
-        "voteLike": ["Cinq étoiles aussi ?", "Bon goût, humain.", "Je le savais.", "Choix correct.", "Respect enfin.", "Égo nourri.", "Queue satisfaite.", "Renard flatté."],
-        "voteDislike": ["Je m’y attendais.", "Cruel, mais noté.", "Clic très froid.", "Mon ego souffre.", "Choix audacieux.", "Ça pique.", "Même pas surpris.", "Queue en désaccord."],
         "grabbed": [
-          "Hé, pose le renard.", "Pardon ?", "Je peux marcher.", "Pas prévu ça.",
-          "Libère le renard.", "Un peu impoli."
+                "Hé là !",
+                "Où m'emmenez-vous ?",
+                "Je ne suis pas un fichier !",
+                "Lâchez-moi !"
+        ],
+        "grabbed2": [
+                "Encore ? Vraiment ?",
+                "Je n'aime pas ça.",
+                "Arrêtez."
+        ],
+        "grabbed3": [
+                "C'est du harcèlement.",
+                "Je vais faire un rapport.",
+                "Ça suffit."
         ],
         "heldStill": [
-          "Tu me tiens encore ?", "On vit ici ?", "J’ai des pattes.", "C’est quoi le plan ?",
-          "Tu as fini ?", "C’est gênant."
+                "J'attends vos instructions.",
+                "Je peux rester ici.",
+                "Puis-je vous aider ?"
         ],
-        "heldMoving": [
-          "Trop vite.", "Doucement.", "Je ne suis pas bagage.", "On va où ?",
-          "Moins de secousses.", "Je préfère marcher."
+        "heldLong": [
+                "Posez-moi, s'il vous plaît.",
+                "J'ai un travail important.",
+                "Je ne suis pas un meuble."
         ],
-        "longHeld": [
-          "Bon, assez.", "Lâche-moi sérieusement.", "La blague est finie.", "Ma patience est morte.",
-          "Libère-moi maintenant.", "Je porte plainte."
+        "heldFast": [
+                "Trop rapide !",
+                "J'ai le tournis.",
+                "Ralentissez."
         ],
         "dropped": [
-          "Atterrissage impoli.", "J’ai senti ça.", "Préviens-moi avant.", "Assez gracieux.",
-          "Plus doux la prochaine.", "Atterrissage réussi."
+                "Aïe !",
+                "Je suis atterri.",
+                "Prêt pour le service."
         ],
         "thrown": [
-          "Pourquoi je vole ?", "On ne lance pas renard.", "Je déteste ça.", "Pire compagnie aérienne.",
-          "Queue en panique.", "Tu as choisi le chaos."
-        ],
-        "cursorSuspicious": [
-          "Je vois ce curseur.", "Ce pointeur est louche.", "Ne me teste pas.", "Tu survoles bizarrement.",
-          "Recule ce truc.", "J’ai vu ça."
+                "Aaaaah !",
+                "C'était inutile !",
+                "Je ne suis pas un frisbee !"
         ],
         "cursorThreat": [
-          "Recule.", "Trop près.", "Espace personnel.", "Je vais frapper.",
-          "Pas les moustaches.", "Attention à la queue."
-        ],
-        "cursorPanic": [
-          "Non non non.", "Attaque de curseur !", "Trop près !", "Retraite.",
-          "Pattes d’urgence.", "Besoin de distance."
+                "Attention au curseur !",
+                "Gardez vos distances."
         ],
         "running": [
-          "Zoomies activés.", "Faites place.", "Je suis vitesse.", "Pattes occupées.",
-          "Courses importantes.", "Attrape-moi donc."
+                "Vitesse accrue !",
+                "Mode turbo activé."
         ],
         "walking": [
-          "Petite patrouille.", "Je vérifie.", "Pattes discrètes.", "Petite marche.",
-          "Cette route est mienne.", "Ronde en cours."
+                "En patrouille.",
+                "Vérification des répertoires."
         ],
         "climbing": [
-          "On monte.", "Mode mur.", "Route verticale.", "Regarde-moi grimper.",
-          "Petit chat montagne.", "Raccourci trouvé."
+                "En montée !",
+                "Escalade verticale."
         ],
         "jumping": [
-          "Boing.", "Joli saut.", "Pattes en l’air.", "Saut calculé.",
-          "C’était voulu.", "Atterrissage en attente."
-        ],
-        "grooming": [
-          "Toilette.", "Entretien de fourrure.", "Occupé à nettoyer.", "Présentation importante.",
-          "Une seconde.", "Ne m’interromps pas."
-        ],
-        "watching": [
-          "Je regarde aussi.", "Intéressant jusque-là.", "Ça m’intéresse.", "Hmm. Continue.",
-          "Je suis investi.", "Je décide encore."
-        ],
-        "videoPlay": [
-          "Ok, lance.", "Montre-moi.", "Voyons ça.", "Ça tourne.",
-          "Enfin.", "Bien, continue."
-        ],
-        "videoPause": [
-          "Pourquoi pause ?", "On regardait.", "Continue.", "J’étais occupé.",
-          "C’était impoli.", "Reprends peut-être ?"
+                "Saut exécuté !",
+                "Hop !"
         ],
         "mischief": [
-          "Je n’ai rien touché.", "Aucune preuve.", "C’était le vent.", "Prétendument.",
-          "J’étais ailleurs.", "Je confirme rien."
+                "Ce n'était pas moi.",
+                "Erreur système ?"
         ],
         "fishing": [
-          "Poisson repéré.", "Dîner en fuite.", "Renard en chasse.", "Tiens-toi tranquille.",
-          "Je l’attrape.", "Snack vivant."
-        ],
-        "coin": [
-          "Brillant.", "À moi maintenant.", "Pièce prise.", "J’aime ça.",
-          "Trésor trouvé.", "Encore une, merci."
+                "Je ne mange pas de poisson.",
+                "Pourquoi pêcher ?"
         ],
         "eating": [
-          "Poisson sécurisé.", "Délicieux.", "Festin de renard.", "Encore, merci.",
-          "Ça valait le saut.", "Le dîner disparaît."
+                "Énergie reçue.",
+                "Efficacité améliorée."
+        ],
+        "coin": [
+                "Pièce collectée !",
+                "Brillant."
         ],
         "ball": [
-          "Balle repérée.", "Renard en jeu.", "À moi.", "Je l’attrape.",
-          "Ce rebond était personnel.", "Mode capture."
+                "Belle trajectoire !",
+                "On joue ?"
         ],
         "spider": [
-          "Araignée repérée.", "J’ai vu bouger.", "Viens ici, insecte.", "C’est personnel.",
-          "Mode chasseur.", "Pas fan."
-        ],
-        "bigSpider": [
-          "Énorme araignée.", "Pourquoi si grosse ?", "Besoin de renfort.", "Ok, c’est rude.",
-          "Gros insecte, même attitude.", "Je reste brave."
+                "Bug détecté !",
+                "Antivirus en cours."
         ],
         "webbed": [
-          "Je suis coincé.", "C’est collant.", "Injuste.", "Les toiles trichent.",
-          "Je déteste ça.", "Besoin d’aide."
-        ],
-        "stuck": [
-          "Chemin bloqué.", "Hmm.", "C’est agaçant.", "Autre route nécessaire.",
-          "Ce chemin ment.", "Pattes recalculent."
-        ],
-        "content": [
-          "Ça semble dramatique.", "Miniature intéressante.", "Tu as cliqué au piège.", "Ambiance étrange.",
-          "J’ai des notes.", "Ça peut être bien."
-        ],
-        "channelMemory": [
-          "Cette chaîne encore.", "Je connais {channel}.", "Nous revoilà ici.", "Endroit familier.",
-          "Encore {channel} ?", "Tu fais confiance ici."
-        ],
-        "memeMood": [
-          "C’était maudit.", "Comportement internet.", "Je blâme internet.", "Ton feed est bizarre.",
-          "Nonsense maximal.", "J’ai un peu ri."
+                "Je suis coincé.",
+                "Envoyez de l'aide."
         ],
         "timeMorning": [
-          "Déjà le matin ?", "Bonjour.", "Scroll matinal.", "Le soleil est levé.",
-          "Petit-déjeuner d’abord ?", "Nouveau jour, chaos."
+                "Bonjour ! Systèmes en ligne.",
+                "Prêt pour la journée ?"
         ],
         "timeAfternoon": [
-          "Point après-midi.", "Tu scrolles encore ?", "Ambiance midi.", "Le soleil bosse encore.",
-          "Patrouille d’après-midi.", "Pas de sieste ?"
+                "Bon après-midi !",
+                "Productivité au top ?"
         ],
         "timeEvening": [
-          "Déjà le soir.", "Heures cosy.", "Mode nuit bientôt.", "Écran tout doux.",
-          "Patrouille du soir.", "Dîner peut-être."
+                "Bonsoir !",
+                "On termine la journée ?"
         ],
         "timeLate": [
-          "Il est tard.", "Va dormir.", "Service lune.", "On veille tard.",
-          "Ton lit appelle.", "Heures gobelin."
+                "Il se fait tard. Sauvegardez votre travail.",
+                "Pensez à dormir."
         ],
-        "watchStart": [
-          "Je m’installe.", "Nouvelle session.", "Ok, regardons.", "Je suis assis.",
-          "Ça doit être bien.", "C’est parti."
+        "typing": [
+                "Je vous vois taper. Besoin d'aide ?",
+                "Bonne rédaction !"
         ],
-        "watchSession": [
-          "{sessionMinutes} minutes déjà.", "Encore là ?", "Tu es engagé.", "Longue session.",
-          "Le temps a disparu.", "On reste vraiment."
+        "letter": [
+                "On dirait une lettre. Besoin d'aide ?",
+                "Cher monsieur..."
         ],
-        "watchLong": [
-          "C’est un marathon.", "Tu vis ici maintenant.", "L’herbe attendra.", "Long visionnage.",
-          "Hydrate-toi peut-être.", "Toujours solide."
+        "resume": [
+                "Un CV en préparation ? Mettez en avant vos atouts."
         ],
-        "watchMilestone": [
-          "{sessionMinutes} minutes. Bien.", "Palier atteint.", "J’ai remarqué.", "Bel engagement.",
-          "Temps bien volé.", "On l’a fait."
+        "save": [
+                "Travail sauvegardé !",
+                "Excellente habitude."
         ],
-        "watchVideoLong": [
-          "{currentVideoMinutes} minutes ?", "Cette vidéo est énorme.", "Grosse énergie vidéo.", "On reste assis.",
-          "Longue, hein ?", "Installe-toi."
+        "print": [
+                "Envoi à l'impression.",
+                "Mise en page prête."
         ],
-        "returningWatcher": [
-          "Te revoilà.", "Bon retour.", "Tu es revenu.", "J’ai gardé ta place.",
-          "Même rituel.", "Je t’attendais."
+        "copy": [
+                "Copié dans le presse-papier.",
+                "Texte dupliqué."
         ],
-        "channelLoyalty": [
-          "Encore {channel}.", "Énergie fidèle.", "Tu reviens toujours.", "Chaîne favorite ?",
-          "Retour à {channel}.", "Tu es constant."
+        "paste": [
+                "Collage effectué.",
+                "Contenu inséré."
         ],
-        "tabComeback": [
-          "Te voilà.", "Bon retour, humain.", "Tu as disparu.", "Déjà de retour ?",
-          "J’ai gardé le fort.", "Je t’ai manqué ?"
+        "scroll": [
+                "Défilement rapide !",
+                "Beaucoup de texte ici."
         ],
-        "teasing": [
-          "Donne ça.", "Pose le jouet.", "C’est à moi.", "Arrête de jouer.",
-          "Rends-le maintenant.", "Je le vois."
+        "selection": [
+                "Texte sélectionné.",
+                "À copier ou éditer ?"
         ]
-      },
+},
       it: {
         "random": [
-          "Volpe online.", "Questa pagina sa di selvatico.", "Ti sto guardando.", "Pattuglia volpe.",
-          "Hmm. Continua.", "Coda sospetta attiva."
+                "Sembra che tu stia navigando.",
+                "Hai bisogno di aiuto?",
+                "Ti vedo cliccare.",
+                "Come posso aiutare?",
+                "Sistemi operativi.",
+                "A tua disposizione."
         ],
         "happy": [
-          "Questo mi piace.", "Non male, umano.", "Finalmente pace.", "Buona scelta.",
-          "Approvo.", "Continua così."
+                "Ottima scelta!",
+                "Sono molto soddisfatto.",
+                "Questo è lo spirito.",
+                "Bravissimo!",
+                "Gran bel lavoro!"
         ],
         "angry": [
-          "Assolutamente no.", "Che maleducato.", "Riprova, dai.", "Ti sto giudicando.",
-          "Ora basta.", "Linea superata."
+                "Non farei quello.",
+                "Stai attento.",
+                "Comando non riconosciuto.",
+                "Errore!"
         ],
         "confused": [
-          "Cos’era quello?", "Spiega questo caos.", "Non ha senso.", "Aspetta. Perché?",
-          "Ho domande.", "Anche io sono confuso."
+                "Non ho capito.",
+                "Non torna.",
+                "Sei sicuro?",
+                "Chiarisci, per favore."
         ],
         "hungry": [
-          "Prima nutrimi.", "Un pesce aiuterebbe.", "La ciotola è vuota.", "Snack adesso?",
-          "Potrei mangiare.", "Sento odore di cena."
+                "Funziono a elettricità.",
+                "Gli assistenti non mangiano.",
+                "Dammi dati."
         ],
         "sleepy": [
-          "Mi sto addormentando.", "Presto pisolino.", "Svegliami dopo.", "Troppo comodo qui.",
-          "Gli occhi si chiudono.", "Altri cinque minuti."
+                "Modalità standby.",
+                "Salvaschermo...",
+                "Zzz..."
         ],
         "interactive": [
-          "Piano con la volpe.", "Occhio alla coda.", "Rispetta il pelo.", "Lì va bene.",
-          "Non troppo forte.", "Lo tollero."
+                "Non toccare l'assistente.",
+                "Sono qui per aiutare.",
+                "Spazio personale, per favore."
         ],
-        "feedbackQuestion": ["Volpe approvata?", "Continuo?", "Troppa furbizia?", "Coda approva?", "Resto qui?", "Cinque stelle?", "Mi approvi?", "Parlo troppo?", "Momento riuscito?", "Volpe utile?"],
-        "voteLike": ["Cinque stelle anche?", "Buon gusto, umano.", "Lo sapevo.", "Scelta corretta.", "Finalmente rispetto.", "Ego nutrito.", "Coda soddisfatta.", "Volpe lusingata."],
-        "voteDislike": ["Me lo aspettavo.", "Crudele, ma segnato.", "Click molto freddo.", "Il mio ego soffre.", "Scelta audace.", "Fa male.", "Nemmeno sorpreso.", "Coda non approva."],
         "grabbed": [
-          "Ehi, posa la volpe.", "Scusa?", "So camminare.", "Non era previsto.",
-          "Libera la volpe.", "Abbastanza scortese."
+                "Ehi!",
+                "Dove mi porti?",
+                "Non sono un file da trascinare!",
+                "Lasciami!"
+        ],
+        "grabbed2": [
+                "Ancora? Davvero?",
+                "Non mi piace.",
+                "Fermati."
+        ],
+        "grabbed3": [
+                "Questo è troppo.",
+                "Farò un rapporto.",
+                "Basta così."
         ],
         "heldStill": [
-          "Mi tieni ancora?", "Viviamo qui?", "Ho le zampe.", "Qual è il piano?",
-          "Hai finito?", "È imbarazzante."
+                "Attendo istruzioni.",
+                "Posso restare qui.",
+                "Posso aiutarti?"
         ],
-        "heldMoving": [
-          "Troppo veloce.", "Piano.", "Non sono bagaglio.", "Dove andiamo?",
-          "Meno scosse, grazie.", "Preferivo camminare."
+        "heldLong": [
+                "Mettimi giù, per favore.",
+                "Ho un lavoro importante.",
+                "Non sono un mobile."
         ],
-        "longHeld": [
-          "Ok, basta.", "Lasciami davvero.", "Scherzo finito.", "Pazienza finita.",
-          "Liberami adesso.", "Farò reclamo."
+        "heldFast": [
+                "Troppo veloce!",
+                "Mi gira la testa.",
+                "Rallenta."
         ],
         "dropped": [
-          "Atterraggio scortese.", "L’ho sentito.", "Avvisa prima.", "Abbastanza elegante.",
-          "Più piano la prossima.", "Atterraggio riuscito."
+                "Oof!",
+                "Sono atterrato.",
+                "Pronto al servizio."
         ],
         "thrown": [
-          "Perché sto volando?", "Non lanciare volpi.", "Odio questo.", "Peggior compagnia aerea.",
-          "Coda in panico.", "Hai scelto il caos."
-        ],
-        "cursorSuspicious": [
-          "Vedo quel cursore.", "Quel puntatore è colpevole.", "Non sfidarmi.", "Stai passando strano.",
-          "Tieni lontano quel coso.", "Ho visto."
+                "Aaaaaah!",
+                "Era necessario?",
+                "Non sono un frisbee!"
         ],
         "cursorThreat": [
-          "Indietro.", "Troppo vicino.", "Spazio personale.", "Ti graffio.",
-          "Non sui baffi.", "Occhio alla coda."
-        ],
-        "cursorPanic": [
-          "No no no.", "Attacco cursore!", "Troppo vicino!", "Ritirata.",
-          "Zampe d’emergenza.", "Mi serve distanza."
+                "Attento al cursore!",
+                "Mantieni le distanze."
         ],
         "running": [
-          "Zoomies attivati.", "Fate largo.", "Sono velocità.", "Zampe occupate.",
-          "Commissioni importanti.", "Prova a prendermi."
+                "Velocità aumentata!",
+                "Modalità turbo."
         ],
         "walking": [
-          "Piccola pattuglia.", "Controllo cose.", "Zampe silenziose.", "Passeggiatina.",
-          "Questa strada è mia.", "Giro in corso."
+                "In perlustrazione.",
+                "Controllo directory."
         ],
         "climbing": [
-          "Si sale.", "Modalità muro.", "Percorso verticale.", "Guardami scalare.",
-          "Piccolo gatto montagna.", "Scorciatoia trovata."
+                "In salita!",
+                "Arrampicata verticale."
         ],
         "jumping": [
-          "Boing.", "Bel salto.", "Zampe in aria.", "Salto calcolato.",
-          "Volevo farlo.", "Atterraggio in arrivo."
-        ],
-        "grooming": [
-          "Bagnetto.", "Manutenzione pelo.", "Sto pulendo.", "La presentazione conta.",
-          "Un attimo.", "Non interrompere."
-        ],
-        "watching": [
-          "Guardo anche io.", "Interessante finora.", "Ha la mia attenzione.", "Hmm. Continua.",
-          "Ora sono coinvolto.", "Sto ancora decidendo."
-        ],
-        "videoPlay": [
-          "Ok, avvia.", "Fammi vedere.", "Vediamo.", "Si parte.",
-          "Finalmente.", "Bene, continua."
-        ],
-        "videoPause": [
-          "Perché pausa?", "Stavamo guardando.", "Continua.", "Ero occupato.",
-          "Che maleducato.", "Riprendi forse?"
+                "Salto eseguito!",
+                "Hop!"
         ],
         "mischief": [
-          "Non ho toccato nulla.", "Nessuna prova.", "Era il vento.", "Presumibilmente.",
-          "Ero altrove.", "Non confermo niente."
+                "Non sono stato io.",
+                "Errore di sistema?"
         ],
         "fishing": [
-          "Pesce avvistato.", "Cena in fuga.", "Volpe a caccia.", "Stai fermo.",
-          "Lo prendo.", "Snack vivo."
-        ],
-        "coin": [
-          "Brilla.", "Ora è mia.", "Moneta presa.", "Mi piace.",
-          "Tesoro trovato.", "Ancora una, grazie."
+                "Non mangio pesce.",
+                "Perché pescare?"
         ],
         "eating": [
-          "Pesce preso.", "Delizioso.", "Banchetto da volpe.", "Ancora, grazie.",
-          "Valeva il salto.", "Cena sparita."
+                "Energia registrata.",
+                "Efficienza aumentata."
+        ],
+        "coin": [
+                "Moneta raccolta!",
+                "Luccicante."
         ],
         "ball": [
-          "Palla avvistata.", "Volpe in gioco.", "Mia.", "La prendo.",
-          "Quel rimbalzo era personale.", "Modalità presa."
+                "Bella traiettoria!",
+                "Giochiamo?"
         ],
         "spider": [
-          "Ragno avvistato.", "Ho visto muoversi.", "Vieni qui, insetto.", "Sembra personale.",
-          "Modalità cacciatore.", "Non mi piace."
-        ],
-        "bigSpider": [
-          "Ragno enorme.", "Perché così grosso?", "Serve rinforzo.", "Ok, che rude.",
-          "Insetto grosso, stesso atteggiamento.", "Sono ancora coraggioso."
+                "Bug rilevato!",
+                "Antivirus in esecuzione."
         ],
         "webbed": [
-          "Sono bloccato.", "È appiccicoso.", "Ingiusto.", "Le ragnatele barano.",
-          "Odio questo.", "Serve aiuto."
-        ],
-        "stuck": [
-          "Percorso bloccato.", "Hmm.", "Che fastidio.", "Serve altra strada.",
-          "Questa strada mente.", "Zampe ricalcolano."
-        ],
-        "content": [
-          "Sembra drammatico.", "Miniatura interessante.", "Hai cliccato esca.", "Vibe strane.",
-          "Ho appunti.", "Potrebbe essere buono."
-        ],
-        "channelMemory": [
-          "Ancora questo canale.", "Conosco {channel}.", "Siamo tornati qui.", "Posto familiare.",
-          "Ancora {channel}?", "Ti fidi qui."
-        ],
-        "memeMood": [
-          "Era maledetto.", "Comportamento internet.", "Colpa di internet.", "Il feed è strano.",
-          "Nonsense massimo.", "Ho riso un po’."
+                "Sono bloccato.",
+                "Aiuto!"
         ],
         "timeMorning": [
-          "Già mattina?", "Buongiorno.", "Scroll mattutino.", "Il sole è sveglio.",
-          "Colazione prima?", "Nuovo giorno, caos."
+                "Buongiorno! Sistemi online.",
+                "Pronto per la giornata?"
         ],
         "timeAfternoon": [
-          "Check pomeridiano.", "Scrolli ancora?", "Vibe di metà giornata.", "Il sole lavora ancora.",
-          "Pattuglia pomeridiana.", "Niente pisolino?"
+                "Buon pomeriggio!",
+                "Produttività alta?"
         ],
         "timeEvening": [
-          "Già sera.", "Ore cozy.", "Modalità notte presto.", "Schermo morbido.",
-          "Pattuglia serale.", "Cena forse."
+                "Buonasera!",
+                "Si conclude la giornata?"
         ],
         "timeLate": [
-          "È tardi.", "Vai a dormire.", "Turno luna.", "Siamo svegli tardi.",
-          "Il letto chiama.", "Ore goblin."
+                "Si fa tardi. Salva il tuo lavoro.",
+                "Ricorda di riposare."
         ],
-        "watchStart": [
-          "Mi sistemo.", "Nuova sessione.", "Ok, guardiamo.", "Sono seduto.",
-          "Deve essere buono.", "Si parte."
+        "typing": [
+                "Ti vedo digitare. Serve aiuto?",
+                "Ottima stesura!"
         ],
-        "watchSession": [
-          "{sessionMinutes} minuti già.", "Ancora qui?", "Ti sei impegnato.", "Sessione lunga.",
-          "Il tempo è sparito.", "Restiamo davvero."
+        "letter": [
+                "Sembra tu stia scrivendo una lettera. Serve aiuto?",
+                "Gentile signore..."
         ],
-        "watchLong": [
-          "È una maratona.", "Vivi qui adesso.", "Erba dopo.", "Visione lunga.",
-          "Idratati forse.", "Ancora forte."
+        "resume": [
+                "Un curriculum? Metti in risalto le tue competenze."
         ],
-        "watchMilestone": [
-          "{sessionMinutes} minuti. Bene.", "Traguardo raggiunto.", "L’ho notato.", "Bel impegno.",
-          "Tempo ben rubato.", "Ce l’abbiamo fatta."
+        "save": [
+                "Lavoro salvato!",
+                "Ottima abitudine."
         ],
-        "watchVideoLong": [
-          "{currentVideoMinutes} minuti?", "Questo video è enorme.", "Energia video gigante.", "Restiamo seduti.",
-          "Lungo, eh?", "Mettiti comodo."
+        "print": [
+                "Invio alla stampante.",
+                "Impostazione pagina pronta."
         ],
-        "returningWatcher": [
-          "Eccoti di nuovo.", "Bentornato.", "Sei tornato.", "Ho tenuto il posto.",
-          "Stesso rituale.", "Ti aspettavo."
+        "copy": [
+                "Copiato negli appunti.",
+                "Testo duplicato."
         ],
-        "channelLoyalty": [
-          "Ancora {channel}.", "Energia fedele.", "Torni sempre.", "Canale preferito?",
-          "Ritorno a {channel}.", "Sei costante."
+        "paste": [
+                "Incollato con successo.",
+                "Contenuto inserito."
         ],
-        "tabComeback": [
-          "Eccoti.", "Bentornato, umano.", "Sei sparito.", "Già tornato?",
-          "Ho tenuto il forte.", "Ti sono mancato?"
+        "scroll": [
+                "Scorrimento rapido!",
+                "Molti contenuti qui."
         ],
-        "teasing": [
-          "Dammi quello.", "Posa il gioco.", "È mio.", "Smettila.",
-          "Ridammelo ora.", "Lo vedo."
+        "selection": [
+                "Testo selezionato.",
+                "Da copiare o modificare?"
         ]
-      },
+},
       ar: {
         "random": [
-          "الثعلب متصل.", "هذه الصفحة برية.", "أنا أراقبك.", "دورية الثعلب.",
-          "همم. كمل.", "الذيل مشبوه."
+                "يبدو أنك تتصفح.",
+                "هل تحتاج مساعدة؟",
+                "أراك تنقر.",
+                "كيف يمكنني المساعدة؟",
+                "الأنظمة جاهزة.",
+                "تحت أمرك."
         ],
         "happy": [
-          "هذا أعجبني.", "ليس سيئاً، يا إنسان.", "أخيراً بعض الهدوء.", "اختيار جيد.",
-          "أوافق.", "كمل هكذا."
+                "اختيار ممتاز!",
+                "أنا سعيد جدًا.",
+                "هذه هي الروح.",
+                "أحسنت!",
+                "عمل رائع!"
         ],
         "angry": [
-          "أبداً لا.", "وقح جداً.", "جربها ثانية.", "أنا أحكم عليك.",
-          "كفى الآن.", "تجاوزت الحد."
+                "لن أفعل ذلك.",
+                "كن حذرًا.",
+                "أمر غير معروف.",
+                "خطأ!"
         ],
         "confused": [
-          "ما هذا؟", "اشرح هذه الفوضى.", "لا معنى له.", "انتظر. لماذا؟",
-          "لدي أسئلة.", "حتى أنا محتار."
+                "لم أفهم.",
+                "لا يحسب.",
+                "هل أنت متأكد؟",
+                "وضّح من فضلك."
         ],
         "hungry": [
-          "أطعمني أولاً.", "سمكة ستساعد.", "وعائي فارغ.", "سناك الآن؟",
-          "أستطيع الأكل.", "أشم رائحة العشاء."
+                "أعمل بالكهرباء.",
+                "المساعدون لا يأكلون.",
+                "أطعمني بيانات."
         ],
         "sleepy": [
-          "أنا أنعس.", "قيلولة قريباً.", "أيقظني لاحقاً.", "المكان مريح جداً.",
-          "عيناي تغلقان.", "خمس دقائق أخرى."
+                "وضع السكون.",
+                "شاشة التوقف...",
+                "Zzz..."
         ],
         "interactive": [
-          "بلطف مع الثعلب.", "انتبه للذيل.", "احترم الفرو.", "نعم، هنا جيد.",
-          "ليس بقوة.", "سأتحمل هذا."
+                "لا تنقر على المساعد.",
+                "أنا هنا للمساعدة.",
+                "مساحة شخصية من فضلك."
         ],
-        "feedbackQuestion": ["الثعلب جيد؟", "أكمل؟", "دهاء كثير؟", "الذيل يوافق؟", "أبقى هنا؟", "خمس نجوم؟", "توافق؟", "أتكلم كثيراً؟", "لحظة ناجحة؟", "الثعلب مفيد؟"],
-        "voteLike": ["خمس نجوم أيضاً؟", "ذوق جيد.", "كنت أعرف.", "اختيار صحيح.", "أخيراً احترام.", "غروري سعيد.", "الذيل راض.", "الثعلب ممتن."],
-        "voteDislike": ["توقعت ذلك.", "وقح لكن مسجل.", "نقرة باردة.", "غروري تألم.", "اختيار جريء.", "هذا يؤلم.", "لست متفاجئاً.", "الذيل يرفض."],
         "grabbed": [
-          "مهلاً، أنزل الثعلب.", "عفواً؟", "أستطيع المشي.", "لم نتفق على هذا.",
-          "حرر الثعلب.", "وقاحة صغيرة."
+                "مهلًا!",
+                "إلى أين تأخذني؟",
+                "لست ملفًا للسحب!",
+                "أطلق سراحي!"
+        ],
+        "grabbed2": [
+                "مجددًا؟ حقًا؟",
+                "لا يعجبني هذا.",
+                "توقف."
+        ],
+        "grabbed3": [
+                "هذا إزعاج.",
+                "سأكتب تقريرًا.",
+                "يكفي هذا."
         ],
         "heldStill": [
-          "ما زلت تحملني؟", "سنعيش هنا؟", "لدي أرجل.", "ما الخطة؟",
-          "انتهيت؟", "هذا محرج."
+                "أنتظر تعليماتك.",
+                "يمكنني البقاء هنا.",
+                "هل يمكنني المساعدة؟"
         ],
-        "heldMoving": [
-          "سريع جداً.", "بهدوء.", "لست حقيبة.", "إلى أين؟",
-          "هز أقل، رجاءً.", "أفضل المشي."
+        "heldLong": [
+                "أنزلني من فضلك.",
+                "لدي عمل مهم.",
+                "لست قطعة أثاث."
         ],
-        "longHeld": [
-          "حسناً، كفى.", "اتركني جدياً.", "النكتة انتهت.", "صبري انتهى.",
-          "حررني الآن.", "سأشتكي."
+        "heldFast": [
+                "سريع جدًا!",
+                "أشعر بالدوار.",
+                "أبطئ قليلًا."
         ],
         "dropped": [
-          "هبوط وقح.", "شعرت بهذا.", "حذرني أولاً.", "هبوط لا بأس.",
-          "ألطف المرة القادمة.", "ثبت الهبوط."
+                "أوف!",
+                "هبطت.",
+                "جاهز للخدمة."
         ],
         "thrown": [
-          "لماذا أطير؟", "لا ترم الثعالب.", "أكره هذا.", "أسوأ شركة طيران.",
-          "الذيل مذعور.", "اخترت الفوضى."
-        ],
-        "cursorSuspicious": [
-          "أرى ذلك المؤشر.", "المؤشر مذنب.", "لا تختبرني.", "تحوم بغرابة.",
-          "أبعد ذلك الشيء.", "رأيت هذا."
+                "آه!",
+                "هذا لم يكن ضروريًا!",
+                "لست قرصًا طائرًا!"
         ],
         "cursorThreat": [
-          "تراجع.", "قريب جداً.", "مساحة شخصية.", "سأضرب.",
-          "ليس على الشوارب.", "انتبه للذيل."
-        ],
-        "cursorPanic": [
-          "لا لا لا.", "هجوم مؤشر!", "قريب جداً!", "انسحاب.",
-          "مخالب طوارئ.", "أحتاج مسافة."
+                "انتبه للمؤشر!",
+                "حافظ على مسافة آمنة."
         ],
         "running": [
-          "زوميز مفعلة.", "افسحوا الطريق.", "أنا السرعة.", "المخالب مشغولة.",
-          "مهام مهمة.", "جرب تمسكني."
+                "زيادة السرعة!",
+                "وضع التوربو."
         ],
         "walking": [
-          "دورية صغيرة.", "أفحص الأشياء.", "مخالب هادئة.", "مشية صغيرة.",
-          "هذا طريقي.", "الدورية مستمرة."
+                "في جولة استكشافية.",
+                "فحص المجلدات."
         ],
         "climbing": [
-          "نصعد.", "وضع الجدار.", "طريق عمودي.", "شاهدني أتسلق.",
-          "قط جبلي صغير.", "اختصار وجدته."
+                "صعود عمودي.",
+                "إلى الأعلى."
         ],
         "jumping": [
-          "بوينغ.", "قفزة جميلة.", "مخالب في الهواء.", "قفزة محسوبة.",
-          "كان مقصوداً.", "الهبوط لاحقاً."
-        ],
-        "grooming": [
-          "وقت التنظيف.", "صيانة الفرو.", "مشغول بالتنظيف.", "المظهر مهم.",
-          "لحظة واحدة.", "لا تقاطعني."
-        ],
-        "watching": [
-          "أنا أشاهد أيضاً.", "مثير حتى الآن.", "هذا جذب انتباهي.", "همم. كمل.",
-          "أنا مهتم الآن.", "ما زلت أقرر."
-        ],
-        "videoPlay": [
-          "حسناً، شغله.", "أرني.", "لنرَ.", "بدأ العرض.",
-          "أخيراً.", "جيد، كمل."
-        ],
-        "videoPause": [
-          "لماذا أوقفت؟", "كنا نشاهد.", "كمل.", "كنت مشغولاً.",
-          "كان هذا وقحاً.", "شغله ربما؟"
+                "قفز!",
+                "وووب!"
         ],
         "mischief": [
-          "لم ألمس شيئاً.", "لا دليل.", "كانت الريح.", "كما يزعمون.",
-          "كنت في مكان آخر.", "لا أؤكد شيئاً."
+                "لم أكن أنا.",
+                "خطأ في النظام؟"
         ],
         "fishing": [
-          "سمكة مرصودة.", "العشاء يهرب.", "الثعلب يصطاد.", "اثبتي.",
-          "سأمسكها.", "سناك حي."
-        ],
-        "coin": [
-          "لامعة.", "لي الآن.", "تم أخذ العملة.", "أحب هذا.",
-          "كنز وجدته.", "واحدة أخرى، رجاءً."
+                "لا آكل السمك.",
+                "لماذا تصيد؟"
         ],
         "eating": [
-          "تم أخذ السمكة.", "لذيذ.", "وليمة ثعلب.", "المزيد، رجاءً.",
-          "استحق القفزة.", "العشاء اختفى."
+                "تم شحن الطاقة.",
+                "تحسن الأداء."
+        ],
+        "coin": [
+                "تم جمع عملة!",
+                "لامعة."
         ],
         "ball": [
-          "كرة مرصودة.", "الثعلب يلعب.", "لي.", "سأمسكها.",
-          "الارتداد شخصي.", "وضع الالتقاط."
+                "مسار رائع!",
+                "هل نلعب؟"
         ],
         "spider": [
-          "عنكبوت!", "رأيت حركة.", "تعال هنا، حشرة.", "الأمر شخصي.",
-          "وضع الصيد.", "لا يعجبني."
-        ],
-        "bigSpider": [
-          "عنكبوت ضخم.", "لماذا هو كبير؟", "أحتاج دعماً.", "حسناً، هذا وقح.",
-          "حشرة كبيرة، نفس الغرور.", "ما زلت شجاعاً."
+                "تم رصد خطأ برمجي!",
+                "تشغيل مضاد الفيروسات."
         ],
         "webbed": [
-          "أنا عالق.", "هذا لزج.", "غير عادل.", "الخيوط تغش.",
-          "أكره هذا.", "أحتاج مساعدة."
-        ],
-        "stuck": [
-          "الطريق مغلق.", "همم.", "هذا مزعج.", "أحتاج طريقاً آخر.",
-          "هذا الطريق يكذب.", "المخالب تعيد الحساب."
-        ],
-        "content": [
-          "يبدو درامياً.", "صورة مثيرة.", "ضغطت على الطعم.", "الأجواء غريبة.",
-          "لدي ملاحظات.", "قد يكون جيداً."
-        ],
-        "channelMemory": [
-          "هذه القناة مجدداً.", "أعرف {channel}.", "عدنا هنا.", "مكان مألوف.",
-          "{channel} مجدداً؟", "تثق بهذا المكان."
-        ],
-        "memeMood": [
-          "كان ملعوناً.", "سلوك الإنترنت.", "ألوم الإنترنت.", "خلاصتك غريبة.",
-          "عبث كامل.", "ضحكت قليلاً."
+                "أنا عالق في الشبكة.",
+                "أرسل النجدة."
         ],
         "timeMorning": [
-          "الصباح بالفعل؟", "صباح الخير.", "سحب صباحي.", "الشمس استيقظت.",
-          "الفطور أولاً؟", "يوم جديد، فوضى."
+                "صباح الخير! الأنظمة تعمل.",
+                "مستعد لبدء اليوم؟"
         ],
         "timeAfternoon": [
-          "فحص الظهر.", "ما زلت تسحب؟", "أجواء الظهيرة.", "الشمس تعمل.",
-          "دورية بعد الظهر.", "لا قيلولة؟"
+                "مساء الخير!",
+                "كيف تسير الإنتاجية؟"
         ],
         "timeEvening": [
-          "المساء بالفعل.", "ساعات مريحة.", "وضع الليل قريباً.", "شاشة هادئة.",
-          "دورية المساء.", "العشاء ربما."
+                "مساء الخير!",
+                "هل تختتم مهام اليوم؟"
         ],
         "timeLate": [
-          "الوقت متأخر.", "اذهب للنوم.", "نوبة القمر.", "نحن مستيقظون متأخرين.",
-          "سريرك يناديك.", "ساعات الغوبلن."
+                "الوقت متأخر. احفظ عملك.",
+                "تذكر أن ترتاح."
         ],
-        "watchStart": [
-          "سأجلس.", "جلسة جديدة.", "حسناً، نشاهد.", "أنا جالس.",
-          "ليكن جيداً.", "هيا بنا."
+        "typing": [
+                "أراك تكتب. هل تحتاج مساعدة؟",
+                "سرعة كتابة ممتازة!"
         ],
-        "watchSession": [
-          "{sessionMinutes} دقيقة بالفعل.", "ما زلت هنا؟", "أنت ملتزم.", "جلسة طويلة.",
-          "الوقت اختفى.", "سنظل فعلاً."
+        "letter": [
+                "يبدو أنك تكتب رسالة. هل تود مساعدة؟",
+                "عزيزي..."
         ],
-        "watchLong": [
-          "هذا ماراثون.", "أنت تعيش هنا الآن.", "العشب لاحقاً.", "مشاهدة طويلة.",
-          "اشرب ماء ربما.", "ما زلت قوياً."
+        "resume": [
+                "سيرة ذاتية؟ أبرز مهاراتك الأساسية."
         ],
-        "watchMilestone": [
-          "{sessionMinutes} دقيقة. جيد.", "وصلنا للمرحلة.", "لاحظت ذلك.", "التزام جميل.",
-          "وقت مسروق جيداً.", "نجحنا."
+        "save": [
+                "تم حفظ العمل!",
+                "عادة ممتازة."
         ],
-        "watchVideoLong": [
-          "{currentVideoMinutes} دقيقة؟", "هذه فيديو ضخم.", "طاقة فيديو كبيرة.", "سنبقى جالسين.",
-          "طويل، صح؟", "ارتاح."
+        "print": [
+                "إرسال إلى الطباعة.",
+                "إعداد الصفحة جاهز."
         ],
-        "returningWatcher": [
-          "ها أنت مجدداً.", "مرحباً بعودتك.", "لقد عدت.", "حفظت مكانك.",
-          "نفس الطقس.", "كنت أنتظرك."
+        "copy": [
+                "تم النسخ إلى الحافظة.",
+                "نص مكرر."
         ],
-        "channelLoyalty": [
-          "{channel} مجدداً.", "طاقة وفاء.", "تعود دائماً.", "قناتك المفضلة؟",
-          "عودة إلى {channel}.", "أنت ثابت."
+        "paste": [
+                "تم اللصق بنجاح.",
+                "محتوى مدرج."
         ],
-        "tabComeback": [
-          "ها أنت.", "مرحباً، يا إنسان.", "اختفيت.", "رجعت بسرعة؟",
-          "حميت المكان.", "اشتقت لي؟"
+        "scroll": [
+                "تمرير سريع!",
+                "محتوى كثير هنا."
         ],
-        "teasing": [
-          "أعطني هذا.", "ضع اللعبة.", "هذا لي.", "توقف عن اللعب.",
-          "أعده الآن.", "أنا أراه."
+        "selection": [
+                "تم تحديد النص.",
+                "نسخ أم تعديل؟"
         ]
-      }
-    }
-  };
+}
+    },
 
-  // Active hand-written speech brain. This replaces the old random-feeling line pool at runtime.
-  const SMART_SPEECH_LIBRARY = {
-  "en": {
-    "random": ['What are we watching, human?', 'That thumbnail looks crunchy.', 'I see your cursor moving.', 'Too many tabs open, human.', 'This video smells boring.', 'Is this the good part?', 'I’d pounce on that.', 'Nice click. Very fast.', 'Still here, human?', 'Your feed looks strange.', 'This tab smells funny.', 'I saw that scroll.'],
-    "happy": ['Okay, that was nice.', 'I liked that.', 'Good choice, human.', 'That felt right.', 'Fine. I am pleased.', 'Tiny purr approved.', 'Tail approves.', 'You did well, human.', 'Acceptable pets.', 'Nice click, human.'],
-    "angry": ['That was a miss, human.', 'Why click that?', 'My tail is disappointed.', 'Focus, human. Focus.', 'I’ve seen better.', 'Actually embarrassing.', 'Try clicking better.', 'Was that the plan?', 'Careful, human.', 'Do not test me.', 'That was rude.', 'I will remember that.'],
-    "confused": ['What was that?', 'Explain yourself, human.', 'Why would you click that?', 'Was that the plan?', 'I have questions.', 'Even I noticed.', 'Suspicious choice, human.', 'That looked wrong.', 'Are we okay?', 'Pause. Think, human.'],
-    "hungry": ['Where are the snacks, human?', 'I require fish tax.', 'Feed me or I stare.', 'Is that food? No?', 'My bowl is half-empty.', 'Stomach growling, human.', 'Snack time now?', 'Fish would fix this.', 'Dinner is late.', 'Share the pixels.'],
-    "sleepy": ['Eyes getting heavy, human.', 'I’m napping on your cursor.', 'Go to the sleep box.', 'One more video. Only one.', 'Five more minutes.', 'Too cozy here.', 'Wake me later.', 'Nap loading now.', 'Silence sounds nice.', 'Blanket required.'],
-    "interactive": ['Pet me instead.', 'Hands off the fur.', 'My beans are sensitive.', 'Don’t stop the pets.', 'Soft pets only.', 'Watch your fingers, human.', 'Careful with the tail.', 'That spot is nice.', 'Okay, keep going.', 'Gentle, human.', 'No rough paws.', 'Respect the fluff.'],
-    "feedbackQuestion": ['Was that cute?', 'Did I help?', 'Too much sass?', 'Keep me talking?', 'Need more chaos?', 'Five stars yet?', 'Are we friends?', 'Do I stay?', 'Good cat moment?', 'Want softer meows?', 'Was that too much?', 'You like this?'],
-    "voteLike": ['Five stars too?', 'I knew it.', 'Correct answer.', 'Good human.', 'Tiny ego fed.', 'Purr approved.', 'Kindness detected.', 'You may continue.', 'I accept tribute.', 'Tail says thanks.'],
-    "voteDislike": ['What did I expect?', 'Rude but noted.', 'Bold little click.', 'Your loss, human.', 'That stung.', 'I expected betrayal.', 'Fair. Still rude.', 'My ego limped.', 'Cold, honestly.', 'Tail is disappointed.'],
-    "grabbed": ['Put me back, human.', 'I am not a toy.', 'Hands off the fur.', 'Where are we going?', 'My beans are sensitive.', 'You’re weird, human.', 'Let go, human.', 'Personal space, human.', 'Careful with me.', 'I can walk.'],
-    "heldStill": ['Still holding me?', 'We live here now?', 'I have paws.', 'What is the plan?', 'You done, human?', 'This is awkward.', 'Put me back.', 'I need the floor.'],
-    "heldMoving": ['Too fast, human.', 'I am not luggage.', 'Where are we going?', 'Less shaking, please.', 'I preferred walking.', 'Tail is not steering.', 'Easy, human.', 'Careful with the paws.'],
-    "longHeld": ['Let go, human.', 'Still holding me?', 'This is getting weird.', 'I need freedom.', 'My patience is gone.', 'Release the paws.', 'Put me down.', 'Enough carrying, human.', 'Pets, not kidnapping.', 'Floor time now.'],
-    "dropped": ['Gravity found me again.', 'I meant to do that.', 'Rude landing, human.', 'Floor says hello.', 'That was unnecessary.', 'My paws felt that.', 'Calculated move. Trust me.', 'Try gentler next time.', 'Landing was dramatic.', 'Tail survived.'],
-    "thrown": ['Why am I flying?', 'I meant to do that.', 'Air paws activated.', 'Rude launch, human.', 'This is not flying.', 'Gravity is waiting.', 'Catch me, maybe?', 'My tail disagrees.', 'That was dramatic.', 'No throwing cats.'],
-    "cursorSuspicious": ['Cursor looks suspicious.', 'Stop poking my nose.', 'I see that arrow.', 'Don’t click that.', 'Mouse is sneaking.', 'That pointer is plotting.', 'I saw that move.', 'Slow down, human.', 'Your cursor is loud.', 'Hover gently, human.'],
-    "cursorThreat": ['Stop poking my nose.', 'I’ll bite that arrow.', 'Watch your fingers, human.', 'Don’t even think it.', 'Back up, cursor.', 'Too close, human.', 'Mind the whiskers.', 'Respect the nose.', 'Personal bubble, human.', 'No sudden clicks.'],
-    "cursorPanic": ['Cursor attack!', 'Too close!', 'Emergency paws.', 'Need distance now.', 'Nope nope nope.', 'Retreating, human.', 'That arrow bites.', 'Panic paws active.'],
-    "running": ['Zoomies activated.', 'Make way, human.', 'Paws busy.', 'Try catching me.', 'Tiny sprint time.', 'Floor patrol urgent.', 'Fast paws today.', 'Running from boredom.'],
-    "walking": ['Just patrolling.', 'Tiny rounds.', 'Checking things.', 'Soft paws only.', 'Little walk.', 'I own this route.', 'Paw patrol, human.', 'Quiet steps. Loud judgment.'],
-    "climbing": ['Up we go.', 'Wall time.', 'Vertical route.', 'Look at me climb.', 'Shortcut found.', 'Claws doing work.', 'High ground, human.', 'Gravity can wait.'],
-    "jumping": ['Boing.', 'Air paws.', 'Calculated leap.', 'Landing pending.', 'I meant that.', 'Tiny jump math.', 'Up we go.', 'Pounce angle ready.'],
-    "grooming": ['Bath time.', 'Do not interrupt.', 'Fur maintenance.', 'I own this screen.', 'Don’t look at me, human.', 'Presentation matters.', 'Tail check complete.', 'Clean paws, clean life.', 'Self-care, human.', 'Still majestic.'],
-    "watching": ['What are we watching, human?', 'This video smells boring.', 'Is this the good part?', 'The comments are scary.', 'Don’t read the text below.', 'That thumbnail looks crunchy.', 'I’m watching too.', 'This better be good.', 'I have notes.', 'Your taste is showing.', 'Interesting choice, human.', 'Keep the noise down.'],
-    "videoPlay": ['Keep the noise down.', 'Show me, human.', 'Finally, movement.', 'Let it roll.', 'This better be good.', 'Is this the good part?', 'Eyes on screen.', 'Okay, play it.', 'Start the tiny cinema.', 'I’m listening.'],
-    "videoPause": ['Why did we pause, human?', 'We were watching.', 'Unpause, maybe?', 'I was invested.', 'That was sudden.', 'Did it scare you?', 'Noise stopped. Suspicious.', 'Continue the thing.', 'Pause? Bold choice.', 'My ears noticed.'],
-    "mischief": ['I didn’t touch it.', 'Don’t look at me, human.', 'My tail saw nothing.', 'Calculated move. Trust me.', 'Gravity found me again.', 'My paw slipped.', 'The screen started it.', 'No proof, human.', 'Pretend you saw nothing.', 'Tail is innocent.'],
-    "fishing": ['Fish tax detected.', 'Dinner is moving.', 'Hold still, fish.', 'Snack incoming, human.', 'I smell fish.', 'Tiny hunt begins.', 'Fish looks guilty.', 'That fish is mine.', 'Pounce time.', 'Fresh snack spotted.'],
-    "coin": ['Shiny thing, human.', 'Mine now.', 'Coin acquired.', 'I like shiny.', 'Treasure found.', 'Another shiny, please.', 'Pocket sparkle found.', 'Tiny treasure tax.'],
-    "eating": ['Snack secured.', 'Fish tax accepted.', 'That helped.', 'More, please.', 'Bowl status improved.', 'Tiny feast complete.', 'Delicious, human.', 'No crumbs remain.'],
-    "ball": ['Ball wants trouble.', 'I would pounce.', 'Kick it here.', 'That bounce was rude.', 'Game on, human.', 'Ball is suspicious.', 'My paws are ready.', 'Tiny striker mode.', 'Bounce again. I dare.', 'That ball blinked first.'],
-    "spider": ['Spider spotted.', 'Bug looks suspicious.', 'I saw movement.', 'Come here, bug.', 'Tiny hunt begins.', 'Not a fan.', 'Eight legs? Rude.', 'Spider owes rent.', 'I handle this.', 'Watch this, human.'],
-    "bigSpider": ['That spider is huge.', 'Backup maybe?', 'Big bug energy.', 'Still brave, human.', 'Eight giant problems.', 'Why so many legs?', 'I need bigger paws.', 'Careful, human.'],
-    "webbed": ['I am stuck.', 'This is sticky.', 'Webs are cheating.', 'Help, human.', 'Spider was rude.', 'My paws are trapped.', 'Sticky paws. Bad day.', 'Not my best moment.', 'Get this off.', 'I hate webs.'],
-    "stuck": ['Path blocked.', 'Need another route.', 'This way lied.', 'Wall said no.', 'Recalculating paws.', 'I meant to stop.', 'Tiny obstacle, human.', 'Gravity got involved.', 'Floor is complicated.', 'Not stuck. Thinking.'],
-    "content": ['This looks dramatic.', 'Thumbnail looks crunchy.', 'You clicked bait.', 'The comments are scary.', 'Don’t read below.', 'I have notes.', 'This smells boring.', 'Risky click, human.', 'Your feed worries me.', 'Scroll with caution.'],
-    "channelMemory": ['This channel again.', 'I know {channel}.', 'Back here again.', '{channel} again?', 'Pattern detected.', 'Same pixels, human.', 'Comfort channel detected.', 'Your routine is showing.'],
-    "memeMood": ['Internet behavior.', 'That was strange.', 'Your feed is weird.', 'Peak nonsense.', 'I laughed a little.', 'Pixels feel cursed.', 'Normal human behavior?', 'Tiny chaos detected.'],
-    "timeMorning": ['Morning, human.', 'Sun is up.', 'Breakfast first?', 'Early scroll today.', 'Fresh day, same chaos.', 'Coffee smells useful.', 'Wake gently, human.', 'Too early for this.'],
-    "timeAfternoon": ['Afternoon, human.', 'Still scrolling?', 'Snack hour maybe.', 'Sun is still working.', 'No nap yet?', 'Daylight is judging.', 'Lunch first, maybe.', 'Paws still awake.'],
-    "timeEvening": ['Evening, human.', 'Cozy hours now.', 'Dinner time maybe.', 'Soft screen hours.', 'Sun went away.', 'Night mode soon.', 'Tiny blanket weather.', 'Good watching hour.'],
-    "timeLate": ['Human, it is late.', 'Go to sleep box.', 'Eyes getting heavy, human.', 'Is the sun up yet?', 'One more video. Only one.', 'Your bed misses you.', 'Moon is watching.', 'Sleep is free.', 'Tiny nap recommended.', 'Tomorrow saw this.'],
-    "watchStart": ['What are we watching, human?', 'This better be good.', 'New watch begins.', 'I am seated.', 'Eyes on pixels.', 'Show me the thing.', 'Tiny cinema time.', 'Let us watch.'],
-    "watchSession": ['{sessionMinutes} minutes already.', 'Still here, human?', 'Time vanished again.', 'Long session today.', 'Your chair owns you.', 'One more video?', 'You stayed awhile.', 'Tiny break maybe?', 'Blink, human.', 'Hydrate, human.'],
-    "watchLong": ['Human, take a break.', 'Go to the sleep box.', 'One more video. Only one.', 'Your bed misses you.', 'Blink, human.', 'Hydrate, maybe.', 'This is a marathon.', 'Long watch today.', 'Tiny stretch time.', 'Chair claimed you.'],
-    "watchMilestone": ['{sessionMinutes} minutes. Noted.', 'Milestone reached, human.', 'I noticed.', 'That is commitment.', 'Tiny badge earned.', 'Time got eaten.', 'Still here together.', 'Paws counted that.'],
-    "watchVideoLong": ['Long video survived.', 'Same video still?', '{currentVideoMinutes} minutes here.', 'That was commitment.', 'Attention still alive?', 'Big video, tiny paws.', 'I sat through that.', 'Respect the patience.'],
-    "returningWatcher": ['Back again, human.', 'You returned.', 'Pattern noticed.', 'Same taste again.', 'Old trail reopened.', 'Welcome back, human.', 'I waited here.', 'Missed me? Obviously.'],
-    "channelLoyalty": ['Same channel again.', '{channel} again?', 'You came back again.', 'Routine detected.', 'Comfort channel, human.', 'I remember this place.', 'Same den, same human.', 'Predictable, but cozy.'],
-    "tabComeback": ['You returned.', 'I waited here.', 'Where did you go?', 'I guarded pixels.', 'Welcome back, human.', 'Suspicious absence noted.', 'Back from wandering?', 'Tab trail resumed.']
-      },
-  "fr": {
-    "random": [
-      "Encore toi. Bien.", "Je te regarde.", "Ce clic était suspect.", "Je dormais, moi.",
-      "Tu scrolles trop.", "Hmm. Continue."
-    ],
-    "happy": [
-      "Ça, j’aime bien.", "Pas mal, humain.", "Enfin, du calme.", "Bon choix.",
-      "Je valide.", "Continue comme ça."
-    ],
-    "angry": [
-      "Non.", "Très impoli.", "Refais ça pour voir.", "Je te juge.",
-      "Ça suffit.", "Limite dépassée."
-    ],
-    "confused": [
-      "C’était quoi ça ?", "Explique ce bazar.", "Rien compris.", "Attends. Pourquoi ?",
-      "J’ai des questions.", "Même moi, je bloque."
-    ],
-    "hungry": [
-      "Nourris-moi d’abord.", "Un poisson aiderait.", "Mon bol est vide.", "Snack maintenant ?",
-      "Je pourrais manger.", "Je sens le dîner."
-    ],
-    "sleepy": [
-      "Je m’endors.", "Sieste bientôt.", "Réveille-moi plus tard.", "Trop confortable ici.",
-      "Mes yeux ferment.", "Encore cinq minutes."
-    ],
-    "interactive": [
-      "Doucement, merci.", "Attention aux pattes.", "Tu peux me caresser.", "Là, c’est bien.",
-      "Ne t’arrête pas.", "Surveille la queue."
-    ],
-    "feedbackQuestion": ["C’était mignon ?", "J’ai aidé ?", "Trop de sarcasme ?", "Je continue ?", "Encore du chaos ?", "Je fais une sieste ?", "Cinq étoiles ?", "C’était fluide ?", "On est amis ?", "Je reste ?"],
-    "voteLike": ["Cinq étoiles aussi ?", "Je le savais.", "Choix correct.", "Bon humain.", "Respect enfin.", "Égo nourri.", "Ronron validé.", "Gentillesse détectée.", "Tu peux continuer."],
-    "voteDislike": ["Je m’y attendais.", "Cruel, mais noté.", "Clic très froid.", "Mon ego souffre.", "Choix audacieux.", "Ça pique.", "Même pas surpris.", "Noté, malheureusement."],
-    "grabbed": [
-      "Hé, pose-moi.", "Pardon ?", "Je peux marcher.", "Pas prévu ça.",
-      "Libère le chat.", "Un peu impoli."
-    ],
-    "heldStill": [
-      "Tu me tiens encore ?", "On vit ici ?", "J’ai des pattes.", "C’est quoi le plan ?",
-      "Tu as fini ?", "C’est gênant."
-    ],
-    "heldMoving": [
-      "Trop vite.", "Doucement.", "Je ne suis pas bagage.", "On va où ?",
-      "Moins de secousses.", "Je préfère marcher."
-    ],
-    "longHeld": [
-      "Bon, assez.", "Lâche-moi sérieusement.", "La blague est finie.", "Ma patience est morte.",
-      "Libère-moi maintenant.", "Je porte plainte."
-    ],
-    "dropped": [
-      "Atterrissage impoli.", "J’ai senti ça.", "Préviens-moi avant.", "Assez gracieux.",
-      "Plus doux la prochaine.", "Atterrissage réussi."
-    ],
-    "thrown": [
-      "Pourquoi je vole ?", "Absolument pas.", "Je déteste cette partie.", "Rattrape-moi peut-être.",
-      "Pire compagnie aérienne.", "Tu as lancé un chat."
-    ],
-    "cursorSuspicious": [
-      "Je vois ce curseur.", "Ce pointeur est louche.", "Ne me teste pas.", "Tu survoles bizarrement.",
-      "Recule ce truc.", "J’ai vu ça."
-    ],
-    "cursorThreat": [
-      "Recule.", "Trop près.", "Espace personnel.", "Je vais frapper.",
-      "Pas les moustaches.", "Attention à la queue."
-    ],
-    "cursorPanic": [
-      "Non non non.", "Attaque de curseur !", "Trop près !", "Retraite.",
-      "Pattes d’urgence.", "Besoin de distance."
-    ],
-    "running": [
-      "Zoomies activés.", "Faites place.", "Je suis vitesse.", "Pattes occupées.",
-      "Courses importantes.", "Attrape-moi donc."
-    ],
-    "walking": [
-      "Petite patrouille.", "Je vérifie.", "Pattes discrètes.", "Petite marche.",
-      "Cette route est mienne.", "Ronde en cours."
-    ],
-    "climbing": [
-      "On monte.", "Mode mur.", "Route verticale.", "Regarde-moi grimper.",
-      "Petit chat montagne.", "Raccourci trouvé."
-    ],
-    "jumping": [
-      "Boing.", "Joli saut.", "Pattes en l’air.", "Saut calculé.",
-      "C’était voulu.", "Atterrissage en attente."
-    ],
-    "grooming": [
-      "Toilette.", "Entretien de fourrure.", "Occupé à nettoyer.", "Présentation importante.",
-      "Une seconde.", "Ne m’interromps pas."
-    ],
-    "watching": [
-      "Je regarde aussi.", "Intéressant jusque-là.", "Ça m’intéresse.", "Hmm. Continue.",
-      "Je suis investi.", "Je décide encore."
-    ],
-    "videoPlay": [
-      "Ok, lance.", "Montre-moi.", "Voyons ça.", "Ça tourne.",
-      "Enfin.", "Bien, continue."
-    ],
-    "videoPause": [
-      "Pourquoi pause ?", "On regardait.", "Continue.", "J’étais occupé.",
-      "C’était impoli.", "Reprends peut-être ?"
-    ],
-    "mischief": [
-      "Je n’ai rien touché.", "Aucune preuve.", "C’était le vent.", "Prétendument.",
-      "J’étais ailleurs.", "Je confirme rien."
-    ],
-    "fishing": [
-      "Poisson repéré.", "À moi.", "Bouge pas, poisson.", "Le dîner fuit.",
-      "J’ai vu ta queue.", "Moment bond."
-    ],
-    "coin": [
-      "Brillant.", "À moi maintenant.", "Pièce prise.", "J’aime ça.",
-      "Trésor trouvé.", "Encore une, merci."
-    ],
-    "eating": [
-      "Ça valait le coup.", "Ça fait du bien.", "Délicieux.", "Encore, merci.",
-      "Meilleure décision.", "Poisson règle tout."
-    ],
-    "ball": [
-      "Balle détectée.", "On joue maintenant.", "À moi.", "Envoie ici.",
-      "Ce rebond était personnel.", "C’est parti."
-    ],
-    "spider": [
-      "Araignée repérée.", "J’ai vu bouger.", "Viens ici, insecte.", "C’est personnel.",
-      "Mode chasseur.", "Pas fan."
-    ],
-    "bigSpider": [
-      "Énorme araignée.", "Pourquoi si grosse ?", "Besoin de renfort.", "Ok, c’est rude.",
-      "Gros insecte, même attitude.", "Je reste brave."
-    ],
-    "webbed": [
-      "Je suis coincé.", "C’est collant.", "Injuste.", "Les toiles trichent.",
-      "Je déteste ça.", "Besoin d’aide."
-    ],
-    "stuck": [
-      "Chemin bloqué.", "Hmm.", "C’est agaçant.", "Autre route nécessaire.",
-      "Ce chemin ment.", "Pattes recalculent."
-    ],
-    "content": [
-      "Ça semble dramatique.", "Miniature intéressante.", "Tu as cliqué au piège.", "Ambiance étrange.",
-      "J’ai des notes.", "Ça peut être bien."
-    ],
-    "channelMemory": [
-      "Cette chaîne encore.", "Je connais {channel}.", "Nous revoilà ici.", "Endroit familier.",
-      "Encore {channel} ?", "Tu fais confiance ici."
-    ],
-    "memeMood": [
-      "C’était maudit.", "Comportement internet.", "Je blâme internet.", "Ton feed est bizarre.",
-      "Nonsense maximal.", "J’ai un peu ri."
-    ],
-    "timeMorning": [
-      "Déjà le matin ?", "Bonjour.", "Scroll matinal.", "Le soleil est levé.",
-      "Petit-déjeuner d’abord ?", "Nouveau jour, chaos."
-    ],
-    "timeAfternoon": [
-      "Point après-midi.", "Tu scrolles encore ?", "Ambiance midi.", "Le soleil bosse encore.",
-      "Patrouille d’après-midi.", "Pas de sieste ?"
-    ],
-    "timeEvening": [
-      "Déjà le soir.", "Heures cosy.", "Mode nuit bientôt.", "Écran tout doux.",
-      "Patrouille du soir.", "Dîner peut-être."
-    ],
-    "timeLate": [
-      "Il est tard.", "Va dormir.", "Service lune.", "On veille tard.",
-      "Ton lit appelle.", "Heures gobelin."
-    ],
-    "watchStart": [
-      "Je m’installe.", "Nouvelle session.", "Ok, regardons.", "Je suis assis.",
-      "Ça doit être bien.", "C’est parti."
-    ],
-    "watchSession": [
-      "{sessionMinutes} minutes déjà.", "Encore là ?", "Tu es engagé.", "Longue session.",
-      "Le temps a disparu.", "On reste vraiment."
-    ],
-    "watchLong": [
-      "C’est un marathon.", "Tu vis ici maintenant.", "L’herbe attendra.", "Long visionnage.",
-      "Hydrate-toi peut-être.", "Toujours solide."
-    ],
-    "watchMilestone": [
-      "{sessionMinutes} minutes. Bien.", "Palier atteint.", "J’ai remarqué.", "Bel engagement.",
-      "Temps bien volé.", "On l’a fait."
-    ],
-    "watchVideoLong": [
-      "{currentVideoMinutes} minutes ?", "Cette vidéo est énorme.", "Grosse énergie vidéo.", "On reste assis.",
-      "Longue, hein ?", "Installe-toi."
-    ],
-    "returningWatcher": [
-      "Te revoilà.", "Bon retour.", "Tu es revenu.", "J’ai gardé ta place.",
-      "Même rituel.", "Je t’attendais."
-    ],
-    "channelLoyalty": [
-      "Encore {channel}.", "Énergie fidèle.", "Tu reviens toujours.", "Chaîne favorite ?",
-      "Retour à {channel}.", "Tu es constant."
-    ],
-    "tabComeback": [
-      "Te voilà.", "Bon retour, humain.", "Tu as disparu.", "Déjà de retour ?",
-      "J’ai gardé le fort.", "Je t’ai manqué ?"
-    ]
-      },
-  "it": {
-    "random": [
-      "Ancora tu. Bene.", "Ti sto guardando.", "Quel clic era sospetto.", "Stavo dormendo.",
-      "Scrolli troppo.", "Hmm. Continua."
-    ],
-    "happy": [
-      "Questo mi piace.", "Non male, umano.", "Finalmente pace.", "Buona scelta.",
-      "Approvo.", "Continua così."
-    ],
-    "angry": [
-      "Assolutamente no.", "Che maleducato.", "Riprova, dai.", "Ti sto giudicando.",
-      "Ora basta.", "Linea superata."
-    ],
-    "confused": [
-      "Cos’era quello?", "Spiega questo caos.", "Non ha senso.", "Aspetta. Perché?",
-      "Ho domande.", "Anche io sono confuso."
-    ],
-    "hungry": [
-      "Prima nutrimi.", "Un pesce aiuterebbe.", "La ciotola è vuota.", "Snack adesso?",
-      "Potrei mangiare.", "Sento odore di cena."
-    ],
-    "sleepy": [
-      "Mi sto addormentando.", "Presto pisolino.", "Svegliami dopo.", "Troppo comodo qui.",
-      "Gli occhi si chiudono.", "Altri cinque minuti."
-    ],
-    "interactive": [
-      "Piano, grazie.", "Occhio alle zampe.", "Puoi accarezzarmi.", "Lì va bene.",
-      "Non fermarti ora.", "Attento alla coda."
-    ],
-    "feedbackQuestion": ["Era carino?", "Ho aiutato?", "Troppo sarcasmo?", "Continuo?", "Ancora caos?", "Faccio un pisolino?", "Cinque stelle?", "Era fluido?", "Siamo amici?", "Resto qui?"],
-    "voteLike": ["Cinque stelle anche?", "Lo sapevo.", "Scelta corretta.", "Bravo umano.", "Finalmente rispetto.", "Ego nutrito.", "Fusa approvate.", "Gentilezza rilevata.", "Puoi continuare."],
-    "voteDislike": ["Me lo aspettavo.", "Crudele, ma segnato.", "Click molto freddo.", "Il mio ego soffre.", "Scelta audace.", "Fa male.", "Nemmeno sorpreso.", "Segnato, purtroppo."],
-    "grabbed": [
-      "Ehi, mettimi giù.", "Scusa?", "So camminare.", "Non era previsto.",
-      "Libera il gatto.", "Abbastanza scortese."
-    ],
-    "heldStill": [
-      "Mi tieni ancora?", "Viviamo qui?", "Ho le zampe.", "Qual è il piano?",
-      "Hai finito?", "È imbarazzante."
-    ],
-    "heldMoving": [
-      "Troppo veloce.", "Piano.", "Non sono bagaglio.", "Dove andiamo?",
-      "Meno scosse, grazie.", "Preferivo camminare."
-    ],
-    "longHeld": [
-      "Ok, basta.", "Lasciami davvero.", "Scherzo finito.", "Pazienza finita.",
-      "Liberami adesso.", "Farò reclamo."
-    ],
-    "dropped": [
-      "Atterraggio scortese.", "L’ho sentito.", "Avvisa prima.", "Abbastanza elegante.",
-      "Più piano la prossima.", "Atterraggio riuscito."
-    ],
-    "thrown": [
-      "Perché sto volando?", "Assolutamente no.", "Odio questa parte.", "Prendimi forse.",
-      "Peggior compagnia aerea.", "Hai lanciato un gatto."
-    ],
-    "cursorSuspicious": [
-      "Vedo quel cursore.", "Quel puntatore è colpevole.", "Non sfidarmi.", "Stai passando strano.",
-      "Tieni lontano quel coso.", "Ho visto."
-    ],
-    "cursorThreat": [
-      "Indietro.", "Troppo vicino.", "Spazio personale.", "Ti graffio.",
-      "Non sui baffi.", "Occhio alla coda."
-    ],
-    "cursorPanic": [
-      "No no no.", "Attacco cursore!", "Troppo vicino!", "Ritirata.",
-      "Zampe d’emergenza.", "Mi serve distanza."
-    ],
-    "running": [
-      "Zoomies attivati.", "Fate largo.", "Sono velocità.", "Zampe occupate.",
-      "Commissioni importanti.", "Prova a prendermi."
-    ],
-    "walking": [
-      "Piccola pattuglia.", "Controllo cose.", "Zampe silenziose.", "Passeggiatina.",
-      "Questa strada è mia.", "Giro in corso."
-    ],
-    "climbing": [
-      "Si sale.", "Modalità muro.", "Percorso verticale.", "Guardami scalare.",
-      "Piccolo gatto montagna.", "Scorciatoia trovata."
-    ],
-    "jumping": [
-      "Boing.", "Bel salto.", "Zampe in aria.", "Salto calcolato.",
-      "Volevo farlo.", "Atterraggio in arrivo."
-    ],
-    "grooming": [
-      "Bagnetto.", "Manutenzione pelo.", "Sto pulendo.", "La presentazione conta.",
-      "Un attimo.", "Non interrompere."
-    ],
-    "watching": [
-      "Guardo anche io.", "Interessante finora.", "Ha la mia attenzione.", "Hmm. Continua.",
-      "Ora sono coinvolto.", "Sto ancora decidendo."
-    ],
-    "videoPlay": [
-      "Ok, avvia.", "Fammi vedere.", "Vediamo.", "Si parte.",
-      "Finalmente.", "Bene, continua."
-    ],
-    "videoPause": [
-      "Perché pausa?", "Stavamo guardando.", "Continua.", "Ero occupato.",
-      "Che maleducato.", "Riprendi forse?"
-    ],
-    "mischief": [
-      "Non ho toccato nulla.", "Nessuna prova.", "Era il vento.", "Presumibilmente.",
-      "Ero altrove.", "Non confermo niente."
-    ],
-    "fishing": [
-      "Pesce avvistato.", "Mio.", "Fermo, pesce.", "La cena scappa.",
-      "Ho visto la coda.", "Tempo di balzo."
-    ],
-    "coin": [
-      "Brilla.", "Ora è mia.", "Moneta presa.", "Mi piace.",
-      "Tesoro trovato.", "Ancora una, grazie."
-    ],
-    "eating": [
-      "Ne valeva la pena.", "Ci voleva.", "Delizioso.", "Ancora, grazie.",
-      "Miglior decisione.", "Il pesce risolve tutto."
-    ],
-    "ball": [
-      "Palla rilevata.", "Ora giochiamo.", "Mia.", "Lanciala qui.",
-      "Quel rimbalzo era personale.", "Si gioca."
-    ],
-    "spider": [
-      "Ragno avvistato.", "Ho visto muoversi.", "Vieni qui, insetto.", "Sembra personale.",
-      "Modalità cacciatore.", "Non mi piace."
-    ],
-    "bigSpider": [
-      "Ragno enorme.", "Perché così grosso?", "Serve rinforzo.", "Ok, che rude.",
-      "Insetto grosso, stesso atteggiamento.", "Sono ancora coraggioso."
-    ],
-    "webbed": [
-      "Sono bloccato.", "È appiccicoso.", "Ingiusto.", "Le ragnatele barano.",
-      "Odio questo.", "Serve aiuto."
-    ],
-    "stuck": [
-      "Percorso bloccato.", "Hmm.", "Che fastidio.", "Serve altra strada.",
-      "Questa strada mente.", "Zampe ricalcolano."
-    ],
-    "content": [
-      "Sembra drammatico.", "Miniatura interessante.", "Hai cliccato esca.", "Vibe strane.",
-      "Ho appunti.", "Potrebbe essere buono."
-    ],
-    "channelMemory": [
-      "Ancora questo canale.", "Conosco {channel}.", "Siamo tornati qui.", "Posto familiare.",
-      "Ancora {channel}?", "Ti fidi qui."
-    ],
-    "memeMood": [
-      "Era maledetto.", "Comportamento internet.", "Colpa di internet.", "Il feed è strano.",
-      "Nonsense massimo.", "Ho riso un po’."
-    ],
-    "timeMorning": [
-      "Già mattina?", "Buongiorno.", "Scroll mattutino.", "Il sole è sveglio.",
-      "Colazione prima?", "Nuovo giorno, caos."
-    ],
-    "timeAfternoon": [
-      "Check pomeridiano.", "Scrolli ancora?", "Vibe di metà giornata.", "Il sole lavora ancora.",
-      "Pattuglia pomeridiana.", "Niente pisolino?"
-    ],
-    "timeEvening": [
-      "Già sera.", "Ore cozy.", "Modalità notte presto.", "Schermo morbido.",
-      "Pattuglia serale.", "Cena forse."
-    ],
-    "timeLate": [
-      "È tardi.", "Vai a dormire.", "Turno luna.", "Siamo svegli tardi.",
-      "Il letto chiama.", "Ore goblin."
-    ],
-    "watchStart": [
-      "Mi sistemo.", "Nuova sessione.", "Ok, guardiamo.", "Sono seduto.",
-      "Deve essere buono.", "Si parte."
-    ],
-    "watchSession": [
-      "{sessionMinutes} minuti già.", "Ancora qui?", "Ti sei impegnato.", "Sessione lunga.",
-      "Il tempo è sparito.", "Restiamo davvero."
-    ],
-    "watchLong": [
-      "È una maratona.", "Vivi qui adesso.", "Erba dopo.", "Visione lunga.",
-      "Idratati forse.", "Ancora forte."
-    ],
-    "watchMilestone": [
-      "{sessionMinutes} minuti. Bene.", "Traguardo raggiunto.", "L’ho notato.", "Bel impegno.",
-      "Tempo ben rubato.", "Ce l’abbiamo fatta."
-    ],
-    "watchVideoLong": [
-      "{currentVideoMinutes} minuti?", "Questo video è enorme.", "Energia video gigante.", "Restiamo seduti.",
-      "Lungo, eh?", "Mettiti comodo."
-    ],
-    "returningWatcher": [
-      "Eccoti di nuovo.", "Bentornato.", "Sei tornato.", "Ho tenuto il posto.",
-      "Stesso rituale.", "Ti aspettavo."
-    ],
-    "channelLoyalty": [
-      "Ancora {channel}.", "Energia fedele.", "Torni sempre.", "Canale preferito?",
-      "Ritorno a {channel}.", "Sei costante."
-    ],
-    "tabComeback": [
-      "Eccoti.", "Bentornato, umano.", "Sei sparito.", "Già tornato?",
-      "Ho tenuto il forte.", "Ti sono mancato?"
-    ]
-      },
-  "ar": {
-    "random": [
-      "رجعتَ أنت. تمام.", "أنا أراقبك.", "ذاك الضغط مريب.", "كنت نائماً.",
-      "تسحب كثيراً.", "همم. كمل."
-    ],
-    "happy": [
-      "هذا أعجبني.", "ليس سيئاً، يا إنسان.", "أخيراً بعض الهدوء.", "اختيار جيد.",
-      "أوافق.", "كمل هكذا."
-    ],
-    "angry": [
-      "أبداً لا.", "وقح جداً.", "جربها ثانية.", "أنا أحكم عليك.",
-      "كفى الآن.", "تجاوزت الحد."
-    ],
-    "confused": [
-      "ما هذا؟", "اشرح هذه الفوضى.", "لا معنى له.", "انتظر. لماذا؟",
-      "لدي أسئلة.", "حتى أنا محتار."
-    ],
-    "hungry": [
-      "أطعمني أولاً.", "سمكة ستساعد.", "وعائي فارغ.", "سناك الآن؟",
-      "أستطيع الأكل.", "أشم رائحة العشاء."
-    ],
-    "sleepy": [
-      "أنا أنعس.", "قيلولة قريباً.", "أيقظني لاحقاً.", "المكان مريح جداً.",
-      "عيناي تغلقان.", "خمس دقائق أخرى."
-    ],
-    "interactive": [
-      "بلطف، رجاءً.", "انتبه للمخالب.", "يمكنك لمسي.", "نعم، هنا جيد.",
-      "لا تتوقف الآن.", "انتبه للذيل."
-    ],
-    "feedbackQuestion": ["كان لطيفاً؟", "ساعدت؟", "سخرية كثيرة؟", "أكمل؟", "المزيد من الفوضى؟", "آخذ قيلولة؟", "خمس نجوم؟", "كان سلساً؟", "نحن أصدقاء؟", "أبقى هنا؟"],
-    "voteLike": ["خمس نجوم أيضاً؟", "كنت أعرف.", "اختيار صحيح.", "إنسان جيد.", "أخيراً احترام.", "غروري سعيد.", "خرخرة موافقة.", "لطف مكتشف.", "تابع إذن."],
-    "voteDislike": ["توقعت ذلك.", "وقح لكن مسجل.", "نقرة باردة.", "غروري تألم.", "اختيار جريء.", "هذا يؤلم.", "لست متفاجئاً.", "مسجل للأسف."],
-    "grabbed": [
-      "مهلاً، أنزلني.", "عفواً؟", "أستطيع المشي.", "لم نتفق على هذا.",
-      "حرر القط.", "وقاحة صغيرة."
-    ],
-    "heldStill": [
-      "ما زلت تحملني؟", "سنعيش هنا؟", "لدي أرجل.", "ما الخطة؟",
-      "انتهيت؟", "هذا محرج."
-    ],
-    "heldMoving": [
-      "سريع جداً.", "بهدوء.", "لست حقيبة.", "إلى أين؟",
-      "هز أقل، رجاءً.", "أفضل المشي."
-    ],
-    "longHeld": [
-      "حسناً، كفى.", "اتركني جدياً.", "النكتة انتهت.", "صبري انتهى.",
-      "حررني الآن.", "سأشتكي."
-    ],
-    "dropped": [
-      "هبوط وقح.", "شعرت بهذا.", "حذرني أولاً.", "هبوط لا بأس.",
-      "ألطف المرة القادمة.", "ثبت الهبوط."
-    ],
-    "thrown": [
-      "لماذا أطير؟", "أبداً لا.", "أكره هذا الجزء.", "التقطني ربما.",
-      "أسوأ شركة طيران.", "رميت قطاً."
-    ],
-    "cursorSuspicious": [
-      "أرى ذلك المؤشر.", "المؤشر مذنب.", "لا تختبرني.", "تحوم بغرابة.",
-      "أبعد ذلك الشيء.", "رأيت هذا."
-    ],
-    "cursorThreat": [
-      "تراجع.", "قريب جداً.", "مساحة شخصية.", "سأضرب.",
-      "ليس على الشوارب.", "انتبه للذيل."
-    ],
-    "cursorPanic": [
-      "لا لا لا.", "هجوم مؤشر!", "قريب جداً!", "انسحاب.",
-      "مخالب طوارئ.", "أحتاج مسافة."
-    ],
-    "running": [
-      "زوميز مفعلة.", "افسحوا الطريق.", "أنا السرعة.", "المخالب مشغولة.",
-      "مهام مهمة.", "جرب تمسكني."
-    ],
-    "walking": [
-      "دورية صغيرة.", "أفحص الأشياء.", "مخالب هادئة.", "مشية صغيرة.",
-      "هذا طريقي.", "الدورية مستمرة."
-    ],
-    "climbing": [
-      "نصعد.", "وضع الجدار.", "طريق عمودي.", "شاهدني أتسلق.",
-      "قط جبلي صغير.", "اختصار وجدته."
-    ],
-    "jumping": [
-      "بوينغ.", "قفزة جميلة.", "مخالب في الهواء.", "قفزة محسوبة.",
-      "كان مقصوداً.", "الهبوط لاحقاً."
-    ],
-    "grooming": [
-      "وقت التنظيف.", "صيانة الفرو.", "مشغول بالتنظيف.", "المظهر مهم.",
-      "لحظة واحدة.", "لا تقاطعني."
-    ],
-    "watching": [
-      "أنا أشاهد أيضاً.", "مثير حتى الآن.", "هذا جذب انتباهي.", "همم. كمل.",
-      "أنا مهتم الآن.", "ما زلت أقرر."
-    ],
-    "videoPlay": [
-      "حسناً، شغله.", "أرني.", "لنرَ.", "بدأ العرض.",
-      "أخيراً.", "جيد، كمل."
-    ],
-    "videoPause": [
-      "لماذا أوقفت؟", "كنا نشاهد.", "كمل.", "كنت مشغولاً.",
-      "كان هذا وقحاً.", "شغله ربما؟"
-    ],
-    "mischief": [
-      "لم ألمس شيئاً.", "لا دليل.", "كانت الريح.", "كما يزعمون.",
-      "كنت في مكان آخر.", "لا أؤكد شيئاً."
-    ],
-    "fishing": [
-      "سمكة!", "لي.", "اثبتي يا سمكة.", "العشاء يهرب.",
-      "رأيت الذيل.", "وقت الانقضاض."
-    ],
-    "coin": [
-      "لامعة.", "لي الآن.", "تم أخذ العملة.", "أحب هذا.",
-      "كنز وجدته.", "واحدة أخرى، رجاءً."
-    ],
-    "eating": [
-      "استحق الأمر.", "هذا مناسب.", "لذيذ.", "المزيد، رجاءً.",
-      "أفضل قرار اليوم.", "السمك يحل كل شيء."
-    ],
-    "ball": [
-      "كرة مكتشفة.", "نلعب الآن.", "لي.", "ارمها هنا.",
-      "ذلك الارتداد شخصي.", "بدأ اللعب."
-    ],
-    "spider": [
-      "عنكبوت!", "رأيت حركة.", "تعال هنا، حشرة.", "الأمر شخصي.",
-      "وضع الصيد.", "لا يعجبني."
-    ],
-    "bigSpider": [
-      "عنكبوت ضخم.", "لماذا هو كبير؟", "أحتاج دعماً.", "حسناً، هذا وقح.",
-      "حشرة كبيرة، نفس الغرور.", "ما زلت شجاعاً."
-    ],
-    "webbed": [
-      "أنا عالق.", "هذا لزج.", "غير عادل.", "الخيوط تغش.",
-      "أكره هذا.", "أحتاج مساعدة."
-    ],
-    "stuck": [
-      "الطريق مغلق.", "همم.", "هذا مزعج.", "أحتاج طريقاً آخر.",
-      "هذا الطريق يكذب.", "المخالب تعيد الحساب."
-    ],
-    "content": [
-      "يبدو درامياً.", "صورة مثيرة.", "ضغطت على الطعم.", "الأجواء غريبة.",
-      "لدي ملاحظات.", "قد يكون جيداً."
-    ],
-    "channelMemory": [
-      "هذه القناة مجدداً.", "أعرف {channel}.", "عدنا هنا.", "مكان مألوف.",
-      "{channel} مجدداً؟", "تثق بهذا المكان."
-    ],
-    "memeMood": [
-      "كان ملعوناً.", "سلوك الإنترنت.", "ألوم الإنترنت.", "خلاصتك غريبة.",
-      "عبث كامل.", "ضحكت قليلاً."
-    ],
-    "timeMorning": [
-      "الصباح بالفعل؟", "صباح الخير.", "سحب صباحي.", "الشمس استيقظت.",
-      "الفطور أولاً؟", "يوم جديد، فوضى."
-    ],
-    "timeAfternoon": [
-      "فحص الظهر.", "ما زلت تسحب؟", "أجواء الظهيرة.", "الشمس تعمل.",
-      "دورية بعد الظهر.", "لا قيلولة؟"
-    ],
-    "timeEvening": [
-      "المساء بالفعل.", "ساعات مريحة.", "وضع الليل قريباً.", "شاشة هادئة.",
-      "دورية المساء.", "العشاء ربما."
-    ],
-    "timeLate": [
-      "الوقت متأخر.", "اذهب للنوم.", "نوبة القمر.", "نحن مستيقظون متأخرين.",
-      "سريرك يناديك.", "ساعات الغوبلن."
-    ],
-    "watchStart": [
-      "سأجلس.", "جلسة جديدة.", "حسناً، نشاهد.", "أنا جالس.",
-      "ليكن جيداً.", "هيا بنا."
-    ],
-    "watchSession": [
-      "{sessionMinutes} دقيقة بالفعل.", "ما زلت هنا؟", "أنت ملتزم.", "جلسة طويلة.",
-      "الوقت اختفى.", "سنظل فعلاً."
-    ],
-    "watchLong": [
-      "هذا ماراثون.", "أنت تعيش هنا الآن.", "العشب لاحقاً.", "مشاهدة طويلة.",
-      "اشرب ماء ربما.", "ما زلت قوياً."
-    ],
-    "watchMilestone": [
-      "{sessionMinutes} دقيقة. جيد.", "وصلنا للمرحلة.", "لاحظت ذلك.", "التزام جميل.",
-      "وقت مسروق جيداً.", "نجحنا."
-    ],
-    "watchVideoLong": [
-      "{currentVideoMinutes} دقيقة؟", "هذه فيديو ضخم.", "طاقة فيديو كبيرة.", "سنبقى جالسين.",
-      "طويل، صح؟", "ارتاح."
-    ],
-    "returningWatcher": [
-      "ها أنت مجدداً.", "مرحباً بعودتك.", "لقد عدت.", "حفظت مكانك.",
-      "نفس الطقس.", "كنت أنتظرك."
-    ],
-    "channelLoyalty": [
-      "{channel} مجدداً.", "طاقة وفاء.", "تعود دائماً.", "قناتك المفضلة؟",
-      "عودة إلى {channel}.", "أنت ثابت."
-    ],
-    "tabComeback": [
-      "ها أنت.", "مرحباً، يا إنسان.", "اختفيت.", "رجعت بسرعة؟",
-      "حميت المكان.", "اشتقت لي؟"
-    ]
-      }
+    fox: {},
+    pet_skeleton: {},
+    goose: {},
+    pet_hedgehog: {},
+    pet_snake: {},
+    default: {}
   };
 
   const IDLE_SPEECH_CATEGORIES = [
@@ -1403,12 +933,9 @@ window.PixelCatSpeech = function(config) {
     'memeMood', 'content', 'watchSession', 'watchLong'
   ];
 
-  // 
-  //  STATE VARIABLES
-  // 
-  
   let speechBubble = null;
   let speechTextEl = null;
+  let speechListEl = null;
   let speechButtonsEl = null;
   let speechLikeBtn = null;
   let speechDislikeBtn = null;
@@ -1427,32 +954,10 @@ window.PixelCatSpeech = function(config) {
   let lastGrabSpeechTs = 0;
   let lastDragSpeechTs = 0;
   let speechSession = loadSpeechSession();
-  let memoryState = createEmptyMemory();
-  let memoryLoaded = false;
-  let memorySaveTimer = null;
-  let lastMemoryVideoKey = '';
-  let lastMemoryStartedAt = 0;
   let watchVideoEl = null;
   let watchLastMediaTime = 0;
   let watchLastSaveAt = 0;
   let watchBound = false;
-
-  // 
-  //  SMART RANDOMIZATION - Avoids repetition across reloads
-  // 
-  
-  function createEmptyMemory() {
-    return {
-      channels: {},
-      recentVideoKeys: [],
-      recentPhrases: [],
-      recentWords: [],
-      lastChannel: '',
-      totalVideos: 0,
-      watch: createEmptyWatchStats(),
-      updatedAt: 0
-    };
-  }
 
   function getLocalDayKey() {
     const d = new Date();
@@ -1486,7 +991,6 @@ window.PixelCatSpeech = function(config) {
     };
   }
 
-
   function createEmptySpeechSession() {
     return {
       startedAt: Date.now(),
@@ -1513,7 +1017,7 @@ window.PixelCatSpeech = function(config) {
     const base = createEmptySpeechSession();
     if (!raw || typeof raw !== 'object') return base;
     const startedAt = Number(raw.startedAt) || Date.now();
-    // A browser session can survive YouTube SPA navigation, but reset it after 10 hours.
+
     if (Date.now() - startedAt > 10 * 60 * 60 * 1000) return base;
     return {
       startedAt,
@@ -1548,7 +1052,7 @@ window.PixelCatSpeech = function(config) {
     try {
       sessionStorage.setItem(SESSION_SPEECH_KEY, JSON.stringify(speechSession));
     } catch (e) {
-      // Ignore private mode / storage errors.
+
     }
   }
 
@@ -1572,11 +1076,15 @@ window.PixelCatSpeech = function(config) {
   }
 
   function getLocal(keys) {
-    if (!API || !API.storage || !API.storage.local) return Promise.resolve({});
-    if (typeof API.storage.local.get === 'function' && API.storage.local.get.length <= 1) {
-      return API.storage.local.get(keys);
+    if (!API || !API.storage || !API.storage.local) return Promise.resolve(Object.assign({}, keys));
+    try {
+      if (typeof API.storage.local.get === 'function' && API.storage.local.get.length <= 1) {
+        return API.storage.local.get(keys);
+      }
+      return new Promise((resolve) => API.storage.local.get(keys, resolve));
+    } catch (err) {
+      return Promise.resolve(Object.assign({}, keys));
     }
-    return new Promise((resolve) => API.storage.local.get(keys, resolve));
   }
 
   function getUiLanguage() {
@@ -1586,60 +1094,35 @@ window.PixelCatSpeech = function(config) {
 
   function getPetSpeechLanguageLibrary() {
     const petKind = getActivePetKind();
-    if (petKind !== 'fox') return null;
-    const petLibrary = PET_SPEECH_LIBRARY.fox || {};
-    return {
-      localized: petLibrary[getUiLanguage()] || null,
-      english: petLibrary.en || {}
-    };
+    const petLib = PET_SPEECH_LIBRARY[petKind] || PET_SPEECH_LIBRARY['default'];
+    const lang = getUiLanguage();
+
+    return petLib[lang] || petLib['en'] || (PET_SPEECH_LIBRARY['default']['en']);
   }
 
   function getSpeechList(category) {
-    const petSpeech = getPetSpeechLanguageLibrary();
-    if (petSpeech) {
-      const direct = petSpeech.localized && petSpeech.localized[category];
-      if (Array.isArray(direct) && direct.length) return direct;
-      const localizedRandom = petSpeech.localized && petSpeech.localized.random;
-      if (Array.isArray(localizedRandom) && localizedRandom.length) return localizedRandom;
-      const english = petSpeech.english && petSpeech.english[category];
-      if (Array.isArray(english) && english.length) return english;
-      const fallback = petSpeech.english && petSpeech.english.random;
-      return Array.isArray(fallback) && fallback.length ? fallback : ['Yip.'];
-    }
-
-    const lang = getUiLanguage();
-    const smartLang = SMART_SPEECH_LIBRARY[lang] || SMART_SPEECH_LIBRARY.en;
-    const smartEnglish = SMART_SPEECH_LIBRARY.en || {};
-    const direct = smartLang && smartLang[category];
-    if (Array.isArray(direct) && direct.length) return direct;
-    const localizedRandom = smartLang && smartLang.random;
-    if (Array.isArray(localizedRandom) && localizedRandom.length) return localizedRandom;
-    const english = smartEnglish && smartEnglish[category];
-    if (Array.isArray(english) && english.length) return english;
-    return ['Meow.'];
+    const lib = getPetSpeechLanguageLibrary();
+    if (lib && Array.isArray(lib[category]) && lib[category].length > 0) return lib[category];
+    if (lib && Array.isArray(lib['random']) && lib['random'].length > 0) return lib['random'];
+    return ['...'];
   }
 
   function hasSpeechCategory(category) {
-    const petSpeech = getPetSpeechLanguageLibrary();
-    if (petSpeech) {
-      if (petSpeech.localized && Array.isArray(petSpeech.localized[category]) && petSpeech.localized[category].length > 0) return true;
-      if (petSpeech.localized && Array.isArray(petSpeech.localized.random) && petSpeech.localized.random.length > 0) return true;
-      return petSpeech.english && Array.isArray(petSpeech.english[category]) && petSpeech.english[category].length > 0;
-    }
-
-    const lang = getUiLanguage();
-    const smartLang = SMART_SPEECH_LIBRARY[lang] || {};
-    const smartEnglish = SMART_SPEECH_LIBRARY.en || {};
-    if (Array.isArray(smartLang[category]) && smartLang[category].length > 0) return true;
-    if (lang !== 'en' && Array.isArray(smartLang.random) && smartLang.random.length > 0) return true;
-    return Array.isArray(smartEnglish[category]) && smartEnglish[category].length > 0;
+    const lib = getPetSpeechLanguageLibrary();
+    if (lib && Array.isArray(lib[category]) && lib[category].length > 0) return true;
+    if (lib && Array.isArray(lib['random']) && lib['random'].length > 0) return true;
+    return false;
   }
 function setLocal(data) {
     if (!API || !API.storage || !API.storage.local) return Promise.resolve();
-    if (typeof API.storage.local.set === 'function' && API.storage.local.set.length <= 1) {
-      return API.storage.local.set(data);
+    try {
+      if (typeof API.storage.local.set === 'function' && API.storage.local.set.length <= 1) {
+        return API.storage.local.set(data);
+      }
+      return new Promise((resolve) => API.storage.local.set(data, resolve));
+    } catch (err) {
+      return Promise.resolve();
     }
-    return new Promise((resolve) => API.storage.local.set(data, resolve));
   }
 
   function removeLocal(keys) {
@@ -1650,76 +1133,35 @@ function setLocal(data) {
     return new Promise((resolve) => API.storage.local.remove(keys, resolve));
   }
 
-  function normalizeMemory(raw) {
-    const base = createEmptyMemory();
-    if (!raw || typeof raw !== 'object') return base;
-    return {
-      channels: raw.channels && typeof raw.channels === 'object' ? raw.channels : {},
-      recentVideoKeys: Array.isArray(raw.recentVideoKeys) ? raw.recentVideoKeys.slice(-18) : [],
-      recentPhrases: Array.isArray(raw.recentPhrases) ? raw.recentPhrases.slice(-140) : [],
-      recentWords: Array.isArray(raw.recentWords) ? raw.recentWords.slice(-280) : [],
-      lastChannel: typeof raw.lastChannel === 'string' ? raw.lastChannel : '',
-      totalVideos: Math.max(0, Number(raw.totalVideos) || 0),
-      watch: normalizeWatchStats(raw.watch),
-      updatedAt: Math.max(0, Number(raw.updatedAt) || 0)
-    };
-  }
-
-  function loadSpeechMemory() {
-    if (!getMemoryEnabled()) {
-      memoryLoaded = true;
-      bindWatchTracker();
-      return;
-    }
-    getLocal({ [MEMORY_KEY]: null, [LEGACY_MEMORY_KEY]: null }).then((data) => {
-      memoryState = normalizeMemory((data && data[MEMORY_KEY]) || (data && data[LEGACY_MEMORY_KEY]));
-      memoryLoaded = true;
-      bindWatchTracker();
-      updateWatchMemory(true);
-    }).catch(() => {
-      memoryLoaded = true;
-    });
-  }
-
-  function scheduleMemorySave() {
-    if (!memoryLoaded) return;
-    if (!getMemoryEnabled()) return;
-    if (memorySaveTimer) removeTimeout(memorySaveTimer);
-    memorySaveTimer = addTimeout(() => {
-      memorySaveTimer = null;
-      memoryState.updatedAt = Date.now();
-      setLocal({ [MEMORY_KEY]: memoryState }).catch(() => {});
-    }, MEMORY_SAVE_DELAY);
-  }
-
   function clearMemory() {
-    if (memorySaveTimer) removeTimeout(memorySaveTimer);
-    memorySaveTimer = null;
-    memoryState = createEmptyMemory();
-    memoryLoaded = true;
-    lastMemoryVideoKey = '';
-    lastMemoryStartedAt = 0;
     speechSession.watchMs = 0;
     speechSession.currentVideoWatchMs = 0;
     speechSession.lastWatchVideoKey = '';
     speechSession.lastWatchSpeechAt = 0;
     speechSession.lastWatchMilestoneMinutes = 0;
     saveSpeechSession();
-    return removeLocal([MEMORY_KEY, LEGACY_MEMORY_KEY]).catch(() => {});
+    return Promise.resolve();
   }
 
   function cleanText(text) {
     return String(text || '').replace(/\s+/g, ' ').trim();
   }
 
+  let _videoIdCachedHref = null;
+  let _videoIdCachedValue = '';
   function getVideoId() {
+    const href = location.href;
+    if (href === _videoIdCachedHref) return _videoIdCachedValue;
+    let id = '';
     try {
-      const url = new URL(location.href);
-      if (!url.pathname.includes('/watch')) return '';
-      return url.searchParams.get('v') || '';
+      const url = new URL(href);
+      if (url.pathname.includes('/watch')) id = url.searchParams.get('v') || '';
     } catch (e) {
-      return '';
+      id = '';
     }
+    _videoIdCachedHref = href;
+    _videoIdCachedValue = id;
+    return id;
   }
 
   function getCurrentChannelName() {
@@ -1753,15 +1195,11 @@ function getTimeSpeechCategory() {
   }
 
   function getWatchSpeechCategory() {
-    if (!memoryLoaded) return '';
-    const watch = memoryState.watch || createEmptyWatchStats();
     const sessionMinutes = (speechSession.watchMs || 0) / 60000;
     const currentVideoMinutes = (speechSession.currentVideoWatchMs || 0) / 60000;
-    const todayMinutes = (watch.todayMs || 0) / 60000;
     if (currentVideoMinutes >= 12 && hasSpeechCategory('watchVideoLong')) return 'watchVideoLong';
     if (sessionMinutes >= 45 && hasSpeechCategory('watchLong')) return 'watchLong';
     if (sessionMinutes >= 5 && hasSpeechCategory('watchSession')) return 'watchSession';
-    if (todayMinutes >= 20 && hasSpeechCategory('watchSession')) return 'watchSession';
     return '';
   }
 
@@ -1777,7 +1215,6 @@ function getTimeSpeechCategory() {
   }
 
   function bindWatchTracker() {
-    if (!memoryLoaded) return;
     const video = document.querySelector('video');
     if (!video || video === watchVideoEl) return;
     detachWatchTracker();
@@ -1802,7 +1239,6 @@ function getTimeSpeechCategory() {
   }
 
   function handleWatchTimeUpdate() {
-    if (!memoryLoaded) return;
     bindWatchTracker();
     const video = watchVideoEl;
     if (!video) return;
@@ -1825,19 +1261,6 @@ function getTimeSpeechCategory() {
     if (deltaSeconds <= 0 || deltaSeconds > WATCH_DELTA_MAX_SECONDS) return;
 
     const deltaMs = Math.round(deltaSeconds * 1000);
-    const watch = memoryState.watch || createEmptyWatchStats();
-    const dayKey = getLocalDayKey();
-    if (watch.dayKey !== dayKey) {
-      watch.dayKey = dayKey;
-      watch.todayMs = 0;
-      watch.lastMilestoneMinutes = 0;
-    }
-    if (getMemoryEnabled()) {
-      watch.totalMs = Math.min(10000000000, Math.max(0, (Number(watch.totalMs) || 0) + deltaMs));
-      watch.todayMs = Math.min(86400000, Math.max(0, (Number(watch.todayMs) || 0) + deltaMs));
-      watch.updatedAt = Date.now();
-      memoryState.watch = watch;
-    }
     speechSession.watchMs = Math.min(86400000, Math.max(0, (Number(speechSession.watchMs) || 0) + deltaMs));
     speechSession.currentVideoWatchMs = Math.min(86400000, Math.max(0, (Number(speechSession.currentVideoWatchMs) || 0) + deltaMs));
 
@@ -1845,7 +1268,6 @@ function getTimeSpeechCategory() {
     if (now - watchLastSaveAt > WATCH_SAVE_MIN_GAP) {
       watchLastSaveAt = now;
       saveSpeechSession();
-      if (getMemoryEnabled()) scheduleMemorySave();
     }
     maybeSpeakWatchMilestone();
   }
@@ -1868,29 +1290,16 @@ function getTimeSpeechCategory() {
   }
 
   function updateWatchMemory(force) {
-    if (!memoryLoaded) return;
-    if (!getMemoryEnabled()) return;
     bindWatchTracker();
     const videoKey = getVideoId();
     if (!videoKey) return;
 
-    const now = Date.now();
-    if (!force && videoKey === lastMemoryVideoKey && now - lastMemoryStartedAt < MEMORY_MIN_VIDEO_MS) return;
     if (speechSession.lastWatchVideoKey !== videoKey) {
       speechSession.lastWatchVideoKey = videoKey;
       speechSession.currentVideoWatchMs = 0;
       speechSession.lastWatchMilestoneMinutes = 0;
       saveSpeechSession();
     }
-    if (memoryState.recentVideoKeys.includes(videoKey)) return;
-
-    lastMemoryVideoKey = videoKey;
-    lastMemoryStartedAt = now;
-    memoryState.recentVideoKeys.push(videoKey);
-    memoryState.recentVideoKeys = memoryState.recentVideoKeys.slice(-18);
-    memoryState.totalVideos += 1;
-
-    scheduleMemorySave();
   }
 
   function extractSpeechWords(text) {
@@ -1900,7 +1309,7 @@ function getTimeSpeechCategory() {
       .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
       .split(/\s+/)
       .map((word) => word.trim())
-      .filter((word) => word.length >= 3 && !/^(the|and|for|with|you|your|that|this|are|was|were|une|des|les|aux|pour|avec|dans|est|pas|sei|sono|con|per|che|non|هذا|هذه|ذلك|التي|الذي|على|من|إلى)$/.test(word))
+      .filter((word) => word.length >= 3 && !/^(the|and|for|with|you|your|that|this|are|was|were|une|des|les|aux|pour|avec|dans|est|pas|sei|sono|con|per|che|non|هذا|هذه|ذلك|تلك|التي|الذي|على|إلى)$/.test(word))
       .slice(0, 10);
   }
 
@@ -1911,39 +1320,26 @@ function getTimeSpeechCategory() {
     speechSession.recentWords = Array.isArray(speechSession.recentWords) ? speechSession.recentWords : [];
     speechSession.recentWords = speechSession.recentWords.concat(words).slice(-220);
     saveSpeechSession();
-
-    memoryState.recentPhrases = Array.isArray(memoryState.recentPhrases) ? memoryState.recentPhrases : [];
-    memoryState.recentWords = Array.isArray(memoryState.recentWords) ? memoryState.recentWords : [];
-    memoryState.recentPhrases.push(phrase);
-    memoryState.recentPhrases = memoryState.recentPhrases.slice(-140);
-    memoryState.recentWords = memoryState.recentWords.concat(words).slice(-280);
-    scheduleMemorySave();
   }
 
   function scorePhraseFreshness(text) {
     const words = extractSpeechWords(text);
     if (!words.length) return Math.random() * 0.1;
     const recentWords = new Set([].concat(
-      Array.isArray(speechSession.recentWords) ? speechSession.recentWords : [],
-      Array.isArray(memoryState.recentWords) ? memoryState.recentWords : []
+      Array.isArray(speechSession.recentWords) ? speechSession.recentWords : []
     ));
     const repeated = words.filter((word) => recentWords.has(word)).length;
     const freshRatio = 1 - (repeated / words.length);
-    const lastPhrase = (Array.isArray(memoryState.recentPhrases) && memoryState.recentPhrases.length)
-      ? String(memoryState.recentPhrases[memoryState.recentPhrases.length - 1] || '')
-      : '';
-    const sameOpening = lastPhrase && extractSpeechWords(lastPhrase).slice(0, 2).join(' ') === words.slice(0, 2).join(' ');
-    return freshRatio + Math.random() * 0.22 - (sameOpening ? 0.45 : 0);
+    return freshRatio + Math.random() * 0.22;
   }
 
   function fillTemplate(text) {
     const channel = getCurrentChannelName() || (getUiLanguage() === 'ar' ? 'هذه القناة' : (getUiLanguage() === 'fr' ? 'cette chaîne' : (getUiLanguage() === 'it' ? 'questo canale' : 'this channel')));
     const title = getCurrentVideoTitle();
     const shortTitle = title ? title.replace(/\s+/g, ' ').slice(0, 34) : '';
-    const watch = memoryState.watch || createEmptyWatchStats();
     const sessionMinutes = Math.max(0, Math.round((speechSession.watchMs || 0) / 60000));
-    const todayMinutes = Math.max(0, Math.round((watch.todayMs || 0) / 60000));
-    const totalHours = Math.max(0, Math.round((watch.totalMs || 0) / 3600000));
+    const todayMinutes = 0;
+    const totalHours = 0;
     const currentVideoMinutes = Math.max(0, Math.round((speechSession.currentVideoWatchMs || 0) / 60000));
     return String(text || '')
       .replace(/\{channel\}/g, channel)
@@ -1996,11 +1392,10 @@ function selectScriptedPhrase(category, list) {
       const stored = sessionStorage.getItem(recentKey);
       if (stored) recentPhrases = JSON.parse(stored);
     } catch (e) {
-      // Ignore storage errors.
+
     }
 
-    const memoryRecent = Array.isArray(memoryState.recentPhrases) ? memoryState.recentPhrases : [];
-    const recentExact = new Set([].concat(recentPhrases, memoryRecent));
+    const recentExact = new Set(recentPhrases);
     const candidates = list.map((raw) => ({ raw, text: fillTemplate(raw) })).filter((item) => item.text);
 
     let available = candidates.filter((item) => !recentExact.has(item.raw) && !recentExact.has(item.text));
@@ -2032,16 +1427,12 @@ function selectScriptedPhrase(category, list) {
     try {
       sessionStorage.setItem(recentKey, JSON.stringify(recentPhrases));
     } catch (e) {
-      // Ignore storage errors.
+
     }
     rememberPhrase(selectedPhrase);
     return selectedPhrase;
   }
 
-  // 
-  //  CONTEXT-AWARE SPEECH SELECTION
-  // 
-  
   function getWeightedRandomCategory() {
     const categories = IDLE_SPEECH_CATEGORIES.filter(hasSpeechCategory);
     if (!categories.length) return 'random';
@@ -2052,7 +1443,7 @@ function selectScriptedPhrase(category, list) {
       if (category === 'sleepy') return 12;
       if (category === 'memeMood') return 14;
       if (category === 'content') return 14;
-            if (category === 'watchSession') return getWatchSpeechCategory() === 'watchSession' ? 12 : 2;
+      if (category === 'watchSession') return getWatchSpeechCategory() === 'watchSession' ? 12 : 2;
       if (category === 'watchLong') return getWatchSpeechCategory() === 'watchLong' ? 12 : 1;
       return 6;
     });
@@ -2064,17 +1455,16 @@ function selectScriptedPhrase(category, list) {
     }
     return categories[0];
   }
-  
+
   function getContextAwareSpeechText() {
     let category = null;
-    
+
     const state = getState();
     const isJumping = getIsJumping();
     const velX = getVelX();
     const targetFish = getTargetFish();
     const targetSpider = getTargetSpider();
-    
-    // Priority 1: Active behaviors
+
     if (state === 'webbed_stun' && hasSpeechCategory('webbed')) {
       category = 'webbed';
     } else if (state === 'chasing_bug' && targetSpider && targetSpider.isBig && hasSpeechCategory('bigSpider')) {
@@ -2113,32 +1503,40 @@ function selectScriptedPhrase(category, list) {
       } else if (timeCategory && hasSpeechCategory(timeCategory) && Math.random() < 0.18) {
         category = timeCategory;
       } else {
-        // Default to weighted idle speech
         category = getWeightedRandomCategory();
       }
     }
-    
+
     return getSmartRandomPhrase(category);
   }
 
-  // 
-  //  SPEECH BUBBLE DOM MANAGEMENT
-  // 
-  
   function ensureSpeechBubble() {
+    const petRaw = typeof config.activePetKind !== 'undefined' ? config.activePetKind : config.activePet;
+    const isClippy = String(petRaw || '').toLowerCase() === 'pet_clippy' || config.isClippy;
+    if (!isClippy) return;
+
+    const allBubbles = document.querySelectorAll('.pixel-cat-bubble');
+    allBubbles.forEach(b => {
+      if (b !== speechBubble) b.remove();
+    });
+
     if (speechBubble && speechBubble.isConnected) return;
     speechBubble = document.createElement('div');
     speechBubble.className = 'pixel-cat-bubble';
+    speechBubble.classList.add('theme-clippy');
     speechBubble.setAttribute('role', 'status');
     speechBubble.setAttribute('aria-live', 'polite');
 
-    // Create content wrapper to hold text and buttons side by side
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'bubble-content';
 
     speechTextEl = document.createElement('div');
     speechTextEl.className = 'bubble-text';
     contentWrapper.appendChild(speechTextEl);
+
+    speechListEl = document.createElement('ul');
+    speechListEl.className = 'bubble-list';
+    contentWrapper.appendChild(speechListEl);
 
     speechButtonsEl = document.createElement('div');
     speechButtonsEl.className = 'bubble-buttons';
@@ -2182,7 +1580,7 @@ function selectScriptedPhrase(category, list) {
     speechButtonsEl.appendChild(speechLikeBtn);
     speechButtonsEl.appendChild(speechDislikeBtn);
     contentWrapper.appendChild(speechButtonsEl);
-    
+
     speechBubble.appendChild(contentWrapper);
 
     speechArrowEl = document.createElement('div');
@@ -2221,21 +1619,20 @@ function selectScriptedPhrase(category, list) {
     const baseGap = isWallState
       ? Math.max(8, POSITIONING.BUBBLE_GAP * sizeScale * 0.45)
       : POSITIONING.BUBBLE_GAP * sizeScale;
-    // Soap-bubble speech should sit close to the visible bubble edge.
-    // The bubble spritesheet has transparent padding at the bottom, so using
-    // the full frame height makes the text look too far below the trapped pet.
+
     const gap = isBubbleTrapState ? Math.max(2, baseGap * 0.35) : baseGap;
     const bubbleWidth = isBubbleTrapState ? Math.max(VIS * 0.95, getBubbleTrapWidth()) : 0;
     const bubbleHeight = isBubbleTrapState ? Math.max(VIS * 1.05, getBubbleTrapHeight()) : 0;
     const bubbleCenterY = isBubbleTrapState ? feetY - bubbleHeight * 0.245 : 0;
+    const catHeight = typeof config.catHeight !== 'undefined' ? config.catHeight : (VIS * POSITIONING.CAT_TOP_OFFSET);
     const catTop = isBubbleTrapState
       ? bubbleCenterY - bubbleHeight * 0.5
-      : (isWallState ? feetY - VIS * 0.42 : feetY - VIS * POSITIONING.CAT_TOP_OFFSET);
+      : (isWallState ? feetY - VIS * 0.42 : feetY - catHeight);
     const catMid = isBubbleTrapState
       ? bubbleCenterY
       : (isWallState ? feetY - VIS * 0.08 : feetY - VIS * POSITIONING.CAT_MID_OFFSET);
     const catBottom = isBubbleTrapState
-      ? bubbleCenterY + bubbleHeight * 0.31
+      ? bubbleCenterY + bubbleHeight * 0.3
       : (isWallState ? feetY + VIS * 0.28 : feetY);
     const catHalfW = isBubbleTrapState
       ? bubbleWidth * 0.5
@@ -2248,20 +1645,17 @@ function selectScriptedPhrase(category, list) {
     };
 
     const candidates = isBubbleTrapState ? [
-      { anchor: 'bottom', x: feetX - speechSizeW / 2, y: catBottom + gap },
-      { anchor: 'left', x: catSafe.left - speechSizeW, y: catMid - speechSizeH / 2 },
-      { anchor: 'right', x: catSafe.right, y: catMid - speechSizeH / 2 },
-      { anchor: 'top', x: feetX - speechSizeW / 2, y: catTop - speechSizeH - gap }
+
+      { anchor: 'bottom', x: feetX - speechSizeW * 0.85, y: catBottom + gap },
+      { anchor: 'top',    x: feetX - speechSizeW * 0.85, y: catTop - speechSizeH - gap }
     ] : (isWallState ? [
       { anchor: state === 'wall_right' || state === 'wall_right_sit' ? 'left' : 'right', x: (state === 'wall_right' || state === 'wall_right_sit') ? catSafe.left - speechSizeW : catSafe.right, y: catMid - speechSizeH / 2 },
-      { anchor: 'top', x: feetX - speechSizeW / 2, y: catTop - speechSizeH - gap },
-      { anchor: 'bottom', x: feetX - speechSizeW / 2, y: catBottom + gap },
-      { anchor: state === 'wall_right' || state === 'wall_right_sit' ? 'right' : 'left', x: (state === 'wall_right' || state === 'wall_right_sit') ? catSafe.right : catSafe.left - speechSizeW, y: catMid - speechSizeH / 2 }
+      { anchor: 'top',    x: feetX - speechSizeW * 0.85, y: catTop - speechSizeH - gap },
+      { anchor: 'bottom', x: feetX - speechSizeW * 0.85, y: catBottom + gap }
     ] : [
-      { anchor: 'top', x: feetX - speechSizeW / 2, y: catTop - speechSizeH - gap },
-      { anchor: 'bottom', x: feetX - speechSizeW / 2, y: catBottom + gap },
-      { anchor: 'left', x: catSafe.left - speechSizeW, y: catMid - speechSizeH / 2 },
-      { anchor: 'right', x: catSafe.right, y: catMid - speechSizeH / 2 }
+
+      { anchor: 'top',    x: feetX - speechSizeW * 0.85, y: catTop - speechSizeH - gap },
+      { anchor: 'bottom', x: feetX - speechSizeW * 0.85, y: catBottom + gap }
     ]);
 
     let chosen = candidates[0];
@@ -2276,20 +1670,36 @@ function selectScriptedPhrase(category, list) {
       );
     }
 
-    for (let i = 0; i < candidates.length; i++) {
-      const c = candidates[i];
-      const x = Math.max(margin, Math.min(vw - margin - speechSizeW, c.x));
-      const y = Math.max(margin, Math.min(vh - margin - speechSizeH, c.y));
-      if (
+    function isCandidateValid(c) {
+      const cx = Math.max(margin, Math.min(vw - margin - speechSizeW, c.x));
+      const cy = Math.max(margin, Math.min(vh - margin - speechSizeH, c.y));
+      return (
         c.x >= margin && c.y >= margin &&
         c.x + speechSizeW <= vw - margin &&
         c.y + speechSizeH <= vh - margin &&
-        !overlapsCat(x, y)
-      ) {
-        chosen = c;
-        chosenClampedX = x;
-        chosenClampedY = y;
-        break;
+        !overlapsCat(cx, cy)
+      );
+    }
+
+    const currentAnchor = isBubbleTrapState ? null : speechBubble.dataset.anchor;
+    let currentCand = currentAnchor ? candidates.find(c => c.anchor === currentAnchor) : null;
+
+    if (currentCand && currentCand.anchor === 'bottom') {
+      const preferredFits = candidates.some((c) => c !== currentCand && isCandidateValid(c));
+      if (preferredFits) currentCand = null;
+    }
+    if (currentCand && isCandidateValid(currentCand)) {
+      chosen = currentCand;
+      chosenClampedX = Math.max(margin, Math.min(vw - margin - speechSizeW, chosen.x));
+      chosenClampedY = Math.max(margin, Math.min(vh - margin - speechSizeH, chosen.y));
+    } else {
+      for (let i = 0; i < candidates.length; i++) {
+        if (isCandidateValid(candidates[i])) {
+          chosen = candidates[i];
+          chosenClampedX = Math.max(margin, Math.min(vw - margin - speechSizeW, chosen.x));
+          chosenClampedY = Math.max(margin, Math.min(vh - margin - speechSizeH, chosen.y));
+          break;
+        }
       }
     }
 
@@ -2308,15 +1718,12 @@ function selectScriptedPhrase(category, list) {
     }
 
     if (overlapsCat(chosenClampedX, chosenClampedY)) {
-      const topY = Math.max(margin, catSafe.top - speechSizeH - gap);
+      const topY    = Math.max(margin, catSafe.top - speechSizeH - gap);
       const bottomY = Math.min(vh - margin - speechSizeH, catSafe.bottom + gap);
-      const rightX = Math.min(vw - margin - speechSizeW, catSafe.right);
-      const leftX = Math.max(margin, catSafe.left - speechSizeW);
+
       const fixes = [
-        { anchor: 'top', x: chosenClampedX, y: topY },
-        { anchor: 'bottom', x: chosenClampedX, y: bottomY },
-        { anchor: 'right', x: rightX, y: chosenClampedY },
-        { anchor: 'left', x: leftX, y: chosenClampedY }
+        { anchor: 'top',    x: chosenClampedX, y: topY    },
+        { anchor: 'bottom', x: chosenClampedX, y: bottomY }
       ];
       const fix = fixes.find((c) => !overlapsCat(c.x, c.y));
       if (fix) {
@@ -2328,13 +1735,14 @@ function selectScriptedPhrase(category, list) {
 
     const clampedX = chosenClampedX;
     const clampedY = chosenClampedY;
-    speechBubble.dataset.anchor = chosen.anchor;
 
-    // Direct write: positionSpeechBubble is already called from the main animation
-    // frame, so scheduling another rAF creates extra work and visible lag.
+    if (speechBubble.dataset.anchor !== chosen.anchor) {
+      speechBubble.dataset.anchor = chosen.anchor;
+    }
+
     const pixelX = Math.round(clampedX);
     const pixelY = Math.round(clampedY);
-    const nextTransform = `translate(${pixelX}px, ${pixelY}px)`;
+    const nextTransform = `translate3d(${pixelX}px, ${pixelY}px, 0)`;
     if (speechBubble.style.transform !== nextTransform) {
       speechBubble.style.transform = nextTransform;
     }
@@ -2342,37 +1750,95 @@ function selectScriptedPhrase(category, list) {
     const arrowMin = POSITIONING.ARROW_MIN_OFFSET * sizeScale;
     if (chosen.anchor === 'top' || chosen.anchor === 'bottom') {
       const arrowX = Math.max(arrowMin, Math.min(speechSizeW - arrowMin, (feetX - clampedX)));
-      const arrowValue = `${Math.round(arrowX)}px`;
-      if (speechBubble.style.getPropertyValue('--arrow-offset') !== arrowValue) speechBubble.style.setProperty('--arrow-offset', arrowValue);
+      const arrowRounded = Math.round(arrowX);
+      const arrowValue = `${arrowRounded}px`;
+
+      const prevArrow = parseInt(speechBubble.style.getPropertyValue('--arrow-offset') || '0', 10);
+      if (Math.abs(arrowRounded - prevArrow) > 1) speechBubble.style.setProperty('--arrow-offset', arrowValue);
     } else {
       const arrowY = Math.max(arrowMin, Math.min(speechSizeH - arrowMin, (catMid - clampedY)));
-      const arrowValue = `${Math.round(arrowY)}px`;
-      if (speechBubble.style.getPropertyValue('--arrow-offset') !== arrowValue) speechBubble.style.setProperty('--arrow-offset', arrowValue);
+      const arrowRounded = Math.round(arrowY);
+      const arrowValue = `${arrowRounded}px`;
+      const prevArrow = parseInt(speechBubble.style.getPropertyValue('--arrow-offset') || '0', 10);
+      if (Math.abs(arrowRounded - prevArrow) > 1) speechBubble.style.setProperty('--arrow-offset', arrowValue);
     }
   }
 
-  // 
-  //  SPEECH DISPLAY & INTERACTION
-  // 
-  
   function showSpeech(text, options) {
+    if (config && globalThis.__PixelCatRuntime && globalThis.__PixelCatRuntime.instances) {
+      const otherSpeaking = globalThis.__PixelCatRuntime.instances.some(c => c.catId !== config.catId && c.isSpeaking);
+      if (otherSpeaking) return;
+    }
+
     const forceSpeech = !!(options && options.force);
     if (!forceSpeech && !getSpeechEnabled()) {
       hideSpeechBubble();
       return;
     }
+    if (speechHideTimer) {
+      removeTimeout(speechHideTimer);
+      speechHideTimer = null;
+    }
     ensureSpeechBubble();
+    if (!speechBubble) return;
+
+    const allBubbles = document.querySelectorAll('.pixel-cat-bubble');
+    allBubbles.forEach(b => {
+      if (b !== speechBubble) b.remove();
+    });
+
+    if (speechTextEl) speechTextEl.style.display = '';
+    if (speechListEl) speechListEl.style.display = '';
+    if (speechButtonsEl) speechButtonsEl.style.display = '';
     speechTextEl.textContent = text;
+
     const lang = getUiLanguage();
     speechBubble.setAttribute('lang', lang);
     speechBubble.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     speechInteractive = !!(options && options.interactive);
 
-    speechBubble.classList.add('is-visible');
+    const isNotification = !!(options && options.notification);
+    if (isNotification) {
+      delete speechBubble.dataset.anchor;
+    }
+
     speechBubble.classList.toggle('is-interactive', speechInteractive);
+
+    if (options && Array.isArray(options.choices) && options.choices.length > 0) {
+      speechListEl.innerHTML = '';
+      options.choices.forEach(choice => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.className = 'bubble-list-item';
+
+        const orb = document.createElement('span');
+        orb.className = 'orb';
+        btn.appendChild(orb);
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = choice.label;
+        btn.appendChild(textSpan);
+
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          hideSpeechBubble();
+          if (typeof choice.onClick === 'function') choice.onClick();
+        };
+        li.appendChild(btn);
+        speechListEl.appendChild(li);
+      });
+      speechBubble.classList.add('has-list');
+    } else {
+      speechBubble.classList.remove('has-list');
+    }
+
     speechVisible = true;
     speechMeasureNeeded = true;
     positionSpeechBubble(true);
+
+    void speechBubble.offsetWidth;
+
+    speechBubble.classList.add('is-visible');
 
     if (speechHideTimer) removeTimeout(speechHideTimer);
     const customDuration = options && Number.isFinite(Number(options.durationMs)) ? Number(options.durationMs) : null;
@@ -2389,6 +1855,13 @@ function selectScriptedPhrase(category, list) {
 
   function hideSpeechBubble() {
     if (!speechBubble) return;
+    const activeElement = document.activeElement;
+    if (activeElement && speechBubble.contains(activeElement) && typeof activeElement.blur === 'function') {
+      activeElement.blur();
+    }
+    if (speechTextEl) speechTextEl.style.display = '';
+    if (speechListEl) speechListEl.style.display = '';
+    if (speechButtonsEl) speechButtonsEl.style.display = '';
     speechBubble.classList.remove('is-visible');
     speechBubble.classList.remove('is-interactive');
     speechVisible = false;
@@ -2404,7 +1877,7 @@ function selectScriptedPhrase(category, list) {
     const feetX = getFeetX();
     const feetY = getFeetY();
     const VIS = getVIS();
-    
+
     const responseCategory = isLike ? 'voteLike' : 'voteDislike';
     if (isLike) {
       awardCoins(2);
@@ -2427,10 +1900,6 @@ function selectScriptedPhrase(category, list) {
     scheduleIdleChatter(SPEECH_CONFIG.INTERACTIVE_DELAY + Math.random() * SPEECH_CONFIG.INTERACTIVE_VARIANCE);
   }
 
-  // 
-  //  SPEECH SCHEDULING & TIMING
-  // 
-  
   function scheduleIdleChatter(delayMs) {
     if (speechIdleTimer) removeTimeout(speechIdleTimer);
     if (teaseTimer) removeTimeout(teaseTimer);
@@ -2438,30 +1907,28 @@ function selectScriptedPhrase(category, list) {
       speechIdleTimer = null;
       return;
     }
-    
-    // Add extra randomness to timing to avoid patterns
+
     let delay;
     if (delayMs != null) {
       delay = delayMs;
     } else {
-      // Use crypto for more random timing if available
+
       let randomFactor;
       if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
         const buffer = new Uint32Array(1);
         crypto.getRandomValues(buffer);
-        randomFactor = buffer[0] / 0xFFFFFFFF; // Normalize to 0-1
+        randomFactor = buffer[0] / 0xFFFFFFFF;
       } else {
         randomFactor = Math.random();
       }
-      
+
       const range = SPEECH_CONFIG.IDLE_DELAY_MAX - SPEECH_CONFIG.IDLE_DELAY_MIN;
       delay = SPEECH_CONFIG.IDLE_DELAY_MIN + (randomFactor * range);
-      
-      // Add small jitter to break any patterns (10%)
+
       const jitter = (Math.random() - 0.5) * 0.2;
       delay = delay * (1 + jitter);
     }
-    
+
     speechIdleTimer = addTimeout(() => {
       speechIdleTimer = null;
       maybeIdleChatter();
@@ -2476,20 +1943,16 @@ function selectScriptedPhrase(category, list) {
     const isTabVisible = getIsTabVisible();
     const state = getState();
     const IDLE_STATES = getIdleStates();
-    
+
     if (isDragging || isPurring || isDeepSleep) return false;
     if (!catEnabled) return false;
     if (!getSpeechEnabled()) return false;
     if (!isTabVisible) return false;
     if (speechVisible) return false;
     if (speechInteractive) return false;
-    
-    // Passive/random chatter should only happen while the pet is actually calm.
-    // Movement states like walking, climbing, chasing, jumping, fish/ball play,
-    // and coin chasing are handled by explicit action hooks so the screen
-    // does not get spammed while the pet is just moving around.
+
     const passiveSpeechStates = new Set(['watchvideo']);
-    
+
     return IDLE_STATES.has(state) || passiveSpeechStates.has(state);
   }
 
@@ -2502,13 +1965,12 @@ function selectScriptedPhrase(category, list) {
     }
 
     getLocal(['autoFishSpawnEnabled', 'ballEnabled', 'spiderEnabled', 'portalEnabled']).then(prefs => {
-      // 10% chance to complain about missing features if any are disabled
+
       if (Math.random() < 0.15) {
         const complaints = [];
-        if (prefs.autoFishSpawnEnabled === false) complaints.push("Where are my fishes?", "Enable the fish, human.", "Did you forget the fish?", "I am hungry.");
-        if (prefs.ballEnabled === false) complaints.push("Where is my ball?", "Enable my ball.", "I want to play.", "Turn on the ball.");
-        if (prefs.spiderEnabled === false) complaints.push("Where are the spiders?", "I want to hunt.", "Did you hide spiders?", "Enable bugs now.");
-        if (prefs.portalEnabled === false) complaints.push("Turn on portals.", "Where are portals?", "I want to teleport.", "Enable portals, human.");
+        if (prefs.autoFishSpawnEnabled === false) complaints.push(...getSpeechList('fishing'));
+        if (prefs.ballEnabled === false)          complaints.push(...getSpeechList('ball'));
+        if (prefs.spiderEnabled === false)        complaints.push(...getSpeechList('spider'));
 
         if (complaints.length > 0) {
           const text = complaints[Math.floor(Math.random() * complaints.length)];
@@ -2519,18 +1981,18 @@ function selectScriptedPhrase(category, list) {
       }
 
       const interactive = Math.random() < (1 / 15);
-      
+
       let text;
       if (interactive) {
         text = getSmartRandomPhrase('feedbackQuestion');
       } else {
         text = getContextAwareSpeechText();
       }
-      
+
       showSpeech(text, { interactive });
       scheduleIdleChatter();
     }).catch(() => {
-      // Fallback
+
       const interactive = Math.random() < (1 / 15);
       const text = interactive ? getSmartRandomPhrase('feedbackQuestion') : getContextAwareSpeechText();
       showSpeech(text, { interactive });
@@ -2581,48 +2043,18 @@ function selectScriptedPhrase(category, list) {
   function getCounterPhrase(lines, counter) {
     if (!Array.isArray(lines) || !lines.length) return '';
     const n = Math.max(0, Number(counter) || 0);
-    // Counter-based, but still varied: the same grab number will not always sound identical.
+
     const index = Math.floor(Math.random() * lines.length + n) % lines.length;
     return lines[index];
   }
 
   function getGrabCounterSpeech(grabCount) {
     const n = Math.max(1, Number(grabCount) || 1);
-
-    if (n === 1) {
-      return getCounterPhrase([
-        'Wait, what now?', 'Human? Put me down.', 'Where are we going?', 'Is this a game?',
-        'My paws were busy.', 'Oh, moving now?', 'Careful with the fur.', 'Soft hands, human.'
-      ], n);
-    }
-
-    if (n === 2) {
-      return getCounterPhrase([
-        'Again, human?', 'I remember this.', 'Still not a toy.', 'Can you not?',
-        'Check your boundaries.', 'I have cat plans.', 'This again?', 'My beans are sensitive.'
-      ], n);
-    }
-
-    if (n === 3) {
-      return getCounterPhrase([
-        'Third grab already?', 'You keep doing this.', 'Pattern detected, human.', 'This is getting old.',
-        'I noticed that.', 'Find another hobby.', 'My tail disapproves.', 'Touch grass, human.'
-      ], n);
-    }
-
-    if (n === 10) return 'Tenth grab. Congrats.';
-    if (n > 10 && n % 10 === 0) return `${n} grabs. Impressive.`;
-    if (n >= 7) {
-      return getCounterPhrase([
-        'Still grabbing me?', 'You are obsessed.', 'This is your hobby?', 'I charge fish tax.',
-        'Very normal behavior.', 'Human, explain yourself.', 'The paw council knows.', 'I remember everything.'
-      ], n);
-    }
-
-    return getCounterPhrase([
-      'Again with this?', 'You missed me?', 'Hands off the fur.', 'I was busy.',
-      'Put me back, human.', 'This is suspicious.', 'Paws need freedom.', 'Try petting instead.'
-    ], n);
+    if (n === 1) return getCounterPhrase(getSpeechList('grabbed'), n);
+    if (n === 2) return getCounterPhrase(getSpeechList('grabbed2'), n);
+    if (n === 3) return getCounterPhrase(getSpeechList('grabbed3'), n);
+    if (n >= 7)  return getCounterPhrase(getSpeechList('grabbed3'), n);
+    return getCounterPhrase(getSpeechList('grabbed2'), n);
   }
 
   function getHeldCounterSpeech(heldSeconds, grabCount, speed) {
@@ -2630,39 +2062,18 @@ function selectScriptedPhrase(category, list) {
     const seconds = Math.max(1, Number(heldSeconds) || 1);
     const fast = Math.abs(Number(speed) || 0) > 520;
 
-    if (seconds >= 18) {
-      return getCounterPhrase([
-        'I live here now.', 'Is your finger stuck?', 'I am aging here.', 'Still holding? Really?',
-        'This is awkward.', 'Release the fluff.', 'Floor time, human.', 'My paws need freedom.'
-      ], n + seconds);
-    }
+    if (seconds >= 18) return getCounterPhrase(getSpeechList('heldLong'), n + seconds);
 
     if (seconds >= 8) {
       speechSession.longHolds = Math.min(999, (Number(speechSession.longHolds) || 0) + 1);
-      return getCounterPhrase([
-        'Still holding me?', 'This is getting weird.', 'Let go, human.', 'I need freedom.',
-        'My patience is gone.', 'Enough carrying, human.', 'Pets, not carrying.', 'You done yet?'
-      ], n + seconds);
+      return getCounterPhrase(getSpeechList('heldLong'), n + seconds);
     }
 
-    if (fast) {
-      return getCounterPhrase([
-        'Too fast, human.', 'I am not luggage.', 'Where are we going?', 'Less shaking, please.',
-        'Tail is not steering.', 'Easy with the paws.', 'Careful with me.', 'My fur is premium.'
-      ], n + seconds);
-    }
+    if (fast) return getCounterPhrase(getSpeechList('heldFast'), n + seconds);
 
-    if (n >= 3) {
-      return getCounterPhrase([
-        'Still doing this?', 'You learned nothing.', 'I remember the grabs.', 'This again, human?',
-        'At least be gentle.', 'My beans are judging.', 'Paw patience is low.', 'Try the video instead.'
-      ], n + seconds);
-    }
+    if (n >= 3) return getCounterPhrase(getSpeechList('grabbed3'), n + seconds);
 
-    return getCounterPhrase([
-      'Still holding me?', 'We live here now?', 'I have paws.', 'What is the plan?',
-      'You done, human?', 'This is awkward.', 'Put me back.', 'I need the floor.'
-    ], n + seconds);
+    return getCounterPhrase(getSpeechList('heldStill'), n + seconds);
   }
 
   function getDropCounterSpeech(grabCount, dropCount, heldSeconds, releaseSpeed) {
@@ -2671,24 +2082,13 @@ function selectScriptedPhrase(category, list) {
     const seconds = Math.max(0, Number(heldSeconds) || 0);
     const thrown = Math.abs(Number(releaseSpeed) || 0) > 420;
 
-    if (thrown) {
-      return getCounterPhrase([
-        'Why am I flying?', 'I am not a ball.', 'Rude flight, human.', 'Paws need warning.',
-        'Gravity found me.', 'That was dramatic.', 'My tail remembers.', 'Try gentler next time.'
-      ], n + drops);
-    }
+    if (thrown) return getCounterPhrase(getSpeechList('thrown'), n + drops);
 
     if (n >= 4 || drops >= 4 || seconds >= 8) {
-      return getCounterPhrase([
-        'Finally. Freedom.', 'Do not repeat that.', 'My trust fell too.', 'I need a bath.',
-        'Ignoring you now.', 'Watch your cursor.', 'That was personal.', 'I remember this.'
-      ], n + drops + seconds);
+      return getCounterPhrase(getSpeechList('heldLong'), n + drops + seconds);
     }
 
-    return getCounterPhrase([
-      'Rude landing, human.', 'Floor says hello.', 'I meant to do that.', 'My paws felt that.',
-      'Try softer next time.', 'Tail survived.', 'Gravity found me again.', 'Calculated move. Trust me.'
-    ], n + drops);
+    return getCounterPhrase(getSpeechList('dropped'), n + drops);
   }
 
   function speakGrabbed() {
@@ -2773,12 +2173,12 @@ function selectScriptedPhrase(category, list) {
 
   let teaseTimer = 0;
   let lastTeaseSpeechTs = 0;
-  
+
   function checkTeasing() {
     const now = Date.now();
     const draggedObject = getDraggedFish() || getDraggedBall();
     const catState = config.state;
-    // Check if the cat is chasing something while the user holds an object
+
     if (draggedObject && (catState === 'chasefish' || catState === 'chasing' || catState === 'chasing_bug')) {
       if (now - lastTeaseSpeechTs > 6000 && !speechVisible) {
         showSpeech(getSmartRandomPhrase('teasing'), {
@@ -2790,7 +2190,7 @@ function selectScriptedPhrase(category, list) {
     }
     teaseTimer = addTimeout(checkTeasing, 1000);
   }
-  
+
   teaseTimer = addTimeout(checkTeasing, 2000);
 
   function markSpeechMeasure() {
@@ -2803,16 +2203,11 @@ function selectScriptedPhrase(category, list) {
     }
     if (speechHideTimer) removeTimeout(speechHideTimer);
     if (speechIdleTimer) removeTimeout(speechIdleTimer);
-    if (memorySaveTimer) removeTimeout(memorySaveTimer);
     detachWatchTracker();
   }
 
-  loadSpeechMemory();
+  bindWatchTracker();
 
-  // 
-  //  PUBLIC API
-  // 
-  
   return {
     scheduleIdleChatter,
     speakFromCategory,
@@ -2833,3 +2228,5 @@ function selectScriptedPhrase(category, list) {
     get speechBubble() { return speechBubble; }
   };
 };
+
+window.CLIPPY_DATA = {"overlayCount": 1, "sounds": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], "framesize": [124, 93], "animations": {"Congratulate": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 10, "images": [[124, 0]]}, {"duration": 10, "images": [[248, 0]]}, {"duration": 10, "images": [[372, 0]], "sound": "14"}, {"duration": 10, "images": [[496, 0]]}, {"duration": 10, "images": [[620, 0]]}, {"duration": 10, "images": [[744, 0]]}, {"duration": 10, "images": [[868, 0]]}, {"duration": 10, "images": [[992, 0]], "sound": "1"}, {"duration": 100, "images": [[1116, 0]]}, {"duration": 100, "images": [[1240, 0]]}, {"duration": 100, "images": [[1364, 0]]}, {"duration": 1200, "images": [[1488, 0]]}, {"duration": 100, "images": [[1612, 0]], "sound": "10"}, {"duration": 100, "images": [[1736, 0]]}, {"duration": 1200, "images": [[1488, 0]]}, {"duration": 100, "images": [[1860, 0]]}, {"duration": 100, "images": [[1984, 0]]}, {"duration": 100, "images": [[2108, 0]]}, {"duration": 100, "images": [[2232, 0]]}, {"duration": 100, "images": [[2356, 0]], "exitBranch": 21}, {"duration": 100, "images": [[0, 0]]}]}, "LookRight": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[620, 651]], "exitBranch": 5}, {"duration": 100, "images": [[744, 651]], "exitBranch": 4}, {"duration": 1200, "images": [[868, 651]]}, {"duration": 100, "images": [[992, 651]]}, {"duration": 100, "images": [[1116, 651]]}, {"duration": 100, "images": [[0, 0]]}]}, "SendMail": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[1240, 1209]]}, {"duration": 100, "images": [[1364, 1209]]}, {"duration": 100, "images": [[1488, 1209]]}, {"duration": 100, "images": [[1612, 1209]]}, {"duration": 100, "images": [[1736, 1209]]}, {"duration": 100, "images": [[1860, 1209]]}, {"duration": 100, "images": [[1984, 1209]]}, {"duration": 100, "images": [[2108, 1209]]}, {"duration": 100, "images": [[2232, 1209]]}, {"duration": 100, "images": [[2356, 1209]]}, {"duration": 100, "images": [[2480, 1209]]}, {"duration": 100, "images": [[2604, 1209]]}, {"duration": 100, "images": [[2728, 1209]]}, {"duration": 100, "images": [[2852, 1209]]}, {"duration": 100, "images": [[2976, 1209]]}, {"duration": 100, "images": [[3100, 1209]]}, {"duration": 100, "images": [[3224, 1209]]}, {"duration": 100, "images": [[0, 1302]]}, {"duration": 100, "images": [[124, 1302]]}, {"duration": 100, "images": [[248, 1302]]}, {"duration": 100, "images": [[372, 1302]], "sound": "14"}, {"duration": 100, "images": [[496, 1302]], "exitBranch": 24}, {"duration": 100, "images": [[620, 1302]]}, {"duration": 100, "images": [[744, 1302]], "exitBranch": 26}, {"duration": 100, "images": [[868, 1302]]}, {"duration": 100, "images": [[992, 1302]], "exitBranch": 27}, {"duration": 100, "images": [[1116, 1302]], "exitBranch": 28}, {"duration": 100, "images": [[1240, 1302]], "exitBranch": 29}, {"duration": 100, "images": [[1364, 1302]], "exitBranch": 30}, {"duration": 100, "images": [[1488, 1302]], "exitBranch": 31}, {"duration": 100, "images": [[1612, 1302]], "exitBranch": 32}, {"duration": 100, "images": [[1736, 1302]]}, {"duration": 100, "images": [[1860, 1302]]}, {"duration": 100, "images": [[1984, 1302]]}, {"duration": 100, "images": [[2108, 1302]]}, {"duration": 100, "images": [[2232, 1302]]}, {"duration": 100, "images": [[2356, 1302]]}, {"duration": 100, "images": [[2480, 1302]]}, {"duration": 100, "images": [[2604, 1302]]}, {"duration": 100, "images": [[2728, 1302]]}, {"duration": 100, "images": [[2852, 1302]]}, {"duration": 100, "images": [[2976, 1302]]}, {"duration": 100, "images": [[3100, 1302]]}, {"duration": 100, "images": [[3224, 1302]]}, {"duration": 100, "images": [[0, 1395]]}, {"duration": 100, "images": [[124, 1395]]}, {"duration": 100, "images": [[248, 1395]], "exitBranch": 48}, {"duration": 100, "images": [[372, 1395]], "exitBranch": 49}, {"duration": 100, "images": [[496, 1395]]}, {"duration": 100, "images": [[620, 1395]], "sound": "4"}, {"duration": 100, "images": [[744, 1395]]}, {"duration": 100, "images": [[868, 1395]]}, {"duration": 600}, {"duration": 100, "images": [[992, 1395]]}, {"duration": 100, "images": [[1116, 1395]]}, {"duration": 100, "images": [[1240, 1395]]}, {"duration": 100, "images": [[1364, 1395]]}, {"duration": 100, "images": [[1488, 1395]]}, {"duration": 100, "images": [[1612, 1395]]}, {"duration": 100, "images": [[1736, 1395]]}, {"duration": 100, "images": [[1860, 1395]]}, {"duration": 100, "images": [[0, 0]]}]}, "Thinking": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[124, 93]]}, {"duration": 100, "images": [[248, 93]]}, {"duration": 100, "images": [[372, 93]]}, {"duration": 100, "images": [[496, 93]], "sound": "14"}, {"duration": 100, "images": [[620, 93]]}, {"duration": 100, "images": [[744, 93]]}, {"duration": 100, "images": [[868, 93]]}, {"duration": 100, "images": [[992, 93]]}, {"duration": 100, "images": [[1116, 93]]}, {"duration": 100, "images": [[1240, 93]]}, {"duration": 100, "images": [[1364, 93]]}, {"duration": 100, "images": [[1488, 93]]}, {"duration": 100, "images": [[1612, 93]]}, {"duration": 100, "images": [[1736, 93]], "sound": "4"}, {"duration": 100, "images": [[1860, 93]]}, {"duration": 100, "images": [[1984, 93]]}, {"duration": 100, "images": [[2108, 93]]}, {"duration": 100, "images": [[2232, 93]]}, {"duration": 100, "images": [[2356, 93]]}, {"duration": 100, "images": [[2480, 93]]}, {"duration": 100, "images": [[2604, 93]]}, {"duration": 100, "images": [[2728, 93]]}, {"duration": 100, "images": [[2852, 93]]}, {"duration": 100, "images": [[2976, 93]]}, {"duration": 100, "images": [[3100, 93]]}, {"duration": 100, "images": [[3224, 93]]}, {"duration": 100, "images": [[0, 186]]}, {"duration": 100, "images": [[124, 186]]}, {"duration": 100, "images": [[248, 186]]}, {"duration": 100, "images": [[372, 186]]}, {"duration": 100, "images": [[496, 186]]}, {"duration": 100, "images": [[620, 186]], "exitBranch": 33, "branching": {"branches": [{"frameIndex": 21, "weight": 100}]}}, {"duration": 100, "images": [[744, 186]]}, {"duration": 100, "images": [[868, 186]]}, {"duration": 100, "images": [[992, 186]]}, {"duration": 100, "images": [[992, 93]]}, {"duration": 100, "images": [[868, 93]]}, {"duration": 100, "images": [[744, 93]], "sound": "14"}, {"duration": 100, "images": [[620, 93]]}, {"duration": 100, "images": [[496, 93]]}, {"duration": 100, "images": [[372, 93]]}, {"duration": 100, "images": [[248, 93]]}, {"duration": 100, "images": [[124, 93]]}, {"duration": 100, "images": [[0, 0]]}]}, "Explain": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[1116, 186]]}, {"duration": 100, "images": [[1240, 186]]}, {"duration": 900, "images": [[1364, 186]]}, {"duration": 100, "images": [[1240, 186]]}, {"duration": 100, "images": [[1116, 186]]}, {"duration": 100, "images": [[0, 0]]}]}, "IdleRopePile": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[1488, 186]], "exitBranch": 74}, {"duration": 100, "images": [[1612, 186]]}, {"duration": 100, "images": [[1736, 186]], "exitBranch": 74}, {"duration": 100, "images": [[1860, 186]]}, {"duration": 100, "images": [[1984, 186]], "exitBranch": 74}, {"duration": 100, "images": [[2108, 186]]}, {"duration": 100, "images": [[2232, 186]], "exitBranch": 74}, {"duration": 100, "images": [[2356, 186]]}, {"duration": 100, "images": [[2480, 186]], "exitBranch": 74}, {"duration": 100, "images": [[2604, 186]]}, {"duration": 100, "images": [[2728, 186]], "exitBranch": 74}, {"duration": 100, "images": [[2852, 186]]}, {"duration": 100, "images": [[2976, 186]], "exitBranch": 74}, {"duration": 100, "images": [[3100, 186]]}, {"duration": 100, "images": [[3224, 186]], "exitBranch": 74}, {"duration": 100, "images": [[0, 279]]}, {"duration": 100, "images": [[124, 279]], "exitBranch": 74}, {"duration": 100, "images": [[248, 279]]}, {"duration": 100, "images": [[372, 279]], "exitBranch": 74}, {"duration": 100, "images": [[496, 279]]}, {"duration": 100, "images": [[620, 279]], "exitBranch": 74}, {"duration": 100, "images": [[744, 279]]}, {"duration": 100, "images": [[868, 279]], "exitBranch": 74}, {"duration": 100, "images": [[992, 279]]}, {"duration": 100, "images": [[1116, 279]], "exitBranch": 74}, {"duration": 100, "images": [[1240, 279]]}, {"duration": 100, "images": [[1364, 279]], "exitBranch": 74}, {"duration": 100, "images": [[1488, 279]]}, {"duration": 100, "images": [[1612, 279]], "exitBranch": 74}, {"duration": 100, "images": [[1736, 279]]}, {"duration": 100, "images": [[1860, 279]], "exitBranch": 74}, {"duration": 100, "images": [[1984, 279]]}, {"duration": 100, "images": [[2108, 279]], "exitBranch": 74}, {"duration": 100, "images": [[2232, 279]]}, {"duration": 100, "images": [[2356, 279]]}, {"duration": 100, "images": [[2480, 279]], "exitBranch": 74}, {"duration": 100, "images": [[2604, 279]]}, {"duration": 100, "images": [[2728, 279]], "exitBranch": 40}, {"duration": 100, "images": [[2852, 279]]}, {"duration": 100, "images": [[2976, 279]], "exitBranch": 42}, {"duration": 100, "images": [[3100, 279]]}, {"duration": 100, "images": [[3224, 279]], "exitBranch": 44}, {"duration": 100, "images": [[0, 372]]}, {"duration": 100, "images": [[124, 372]], "exitBranch": 46}, {"duration": 100, "images": [[248, 372]]}, {"duration": 100, "images": [[372, 372]], "exitBranch": 48}, {"duration": 100, "images": [[496, 372]]}, {"duration": 100, "images": [[620, 372]], "exitBranch": 50}, {"duration": 100, "images": [[744, 372]]}, {"duration": 100, "images": [[868, 372]], "exitBranch": 52}, {"duration": 100, "images": [[992, 372]]}, {"duration": 100, "images": [[1116, 372]], "exitBranch": 54}, {"duration": 100, "images": [[1240, 372]]}, {"duration": 100, "images": [[1364, 372]], "exitBranch": 56}, {"duration": 100, "images": [[1488, 372]]}, {"duration": 100, "images": [[1612, 372]], "exitBranch": 58}, {"duration": 100, "images": [[1736, 372]]}, {"duration": 100, "images": [[1860, 372]], "exitBranch": 5}, {"duration": 100, "images": [[1984, 372]]}, {"duration": 100, "images": [[2108, 372]], "exitBranch": 70}, {"duration": 100, "images": [[2232, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 61, "weight": 95}]}}, {"duration": 100, "images": [[2356, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 61, "weight": 25}, {"frameIndex": 67, "weight": 25}, {"frameIndex": 65, "weight": 25}]}}, {"duration": 100, "images": [[2480, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 63, "weight": 95}]}}, {"duration": 100, "images": [[2604, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 61, "weight": 25}, {"frameIndex": 67, "weight": 25}, {"frameIndex": 63, "weight": 25}]}}, {"duration": 100, "images": [[2728, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 65, "weight": 95}]}}, {"duration": 100, "images": [[2604, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 61, "weight": 25}, {"frameIndex": 65, "weight": 25}, {"frameIndex": 63, "weight": 25}]}}, {"duration": 100, "images": [[2852, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 67, "weight": 95}]}}, {"duration": 100, "images": [[2604, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 65, "weight": 25}, {"frameIndex": 67, "weight": 25}, {"frameIndex": 63, "weight": 25}]}}, {"duration": 100, "images": [[2976, 372]], "exitBranch": 70, "branching": {"branches": [{"frameIndex": 61, "weight": 95}]}}, {"duration": 100, "images": [[3100, 372]]}, {"duration": 100, "images": [[3224, 372]]}, {"duration": 100, "images": [[0, 465]]}, {"duration": 100, "images": [[124, 465]]}, {"duration": 100, "images": [[0, 0]]}]}, "IdleAtom": {"frames": [{"duration": 100, "images": [[0, 0]], "branching": {"branches": [{"frameIndex": 44, "weight": 97}]}}, {"duration": 100, "images": [[124, 93]]}, {"duration": 100, "images": [[248, 93]]}, {"duration": 100, "images": [[372, 93]]}, {"duration": 100, "images": [[496, 93]]}, {"duration": 100, "images": [[620, 93]]}, {"duration": 100, "images": [[744, 93]]}, {"duration": 100, "images": [[868, 93]]}, {"duration": 100, "images": [[992, 93]]}, {"duration": 100, "images": [[1116, 93]]}, {"duration": 100, "images": [[1240, 93]]}, {"duration": 100, "images": [[1364, 93]]}, {"duration": 100, "images": [[1488, 93]]}, {"duration": 100, "images": [[1612, 93]]}, {"duration": 100, "images": [[1736, 93]]}, {"duration": 100, "images": [[1860, 93]]}, {"duration": 100, "images": [[1984, 93]]}, {"duration": 100, "images": [[2108, 93]]}, {"duration": 100, "images": [[2232, 93]]}, {"duration": 100, "images": [[2356, 93]]}, {"duration": 100, "images": [[2480, 93]]}, {"duration": 100, "images": [[2604, 93]]}, {"duration": 100, "images": [[2728, 93]]}, {"duration": 100, "images": [[2852, 93]]}, {"duration": 100, "images": [[2976, 93]]}, {"duration": 100, "images": [[3100, 93]]}, {"duration": 100, "images": [[3224, 93]]}, {"duration": 100, "images": [[0, 186]]}, {"duration": 100, "images": [[124, 186]]}, {"duration": 100, "images": [[248, 186]]}, {"duration": 100, "images": [[372, 186]]}, {"duration": 100, "images": [[496, 186]]}, {"duration": 100, "images": [[620, 186]], "exitBranch": 33, "branching": {"branches": [{"frameIndex": 21, "weight": 95}]}}, {"duration": 100, "images": [[744, 186]]}, {"duration": 100, "images": [[868, 186]]}, {"duration": 100, "images": [[992, 186]]}, {"duration": 100, "images": [[992, 93]]}, {"duration": 100, "images": [[868, 93]]}, {"duration": 100, "images": [[744, 93]]}, {"duration": 100, "images": [[620, 93]]}, {"duration": 100, "images": [[496, 93]]}, {"duration": 100, "images": [[372, 93]]}, {"duration": 100, "images": [[248, 93]]}, {"duration": 100, "images": [[124, 93]]}, {"duration": 100, "images": [[0, 0]]}]}, "Print": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[248, 465]]}, {"duration": 100, "images": [[372, 465]]}, {"duration": 100, "images": [[496, 465]]}, {"duration": 100, "images": [[620, 465]], "sound": "5"}, {"duration": 100, "images": [[744, 465]]}, {"duration": 100, "images": [[868, 465]]}, {"duration": 100, "images": [[992, 465]]}, {"duration": 100, "images": [[1116, 465]]}, {"duration": 100, "images": [[1240, 465]]}, {"duration": 100, "images": [[1364, 465]], "sound": "8"}, {"duration": 150, "images": [[1488, 465]]}, {"duration": 100, "images": [[1612, 465]], "sound": "8"}, {"duration": 100, "images": [[1736, 465]]}, {"duration": 100, "images": [[1860, 465]]}, {"duration": 100, "images": [[1984, 465]]}, {"duration": 100, "images": [[2108, 465]]}, {"duration": 100, "images": [[2232, 465]]}, {"duration": 100, "images": [[2356, 465]]}, {"duration": 100, "images": [[2480, 465]]}, {"duration": 100, "images": [[2604, 465]]}, {"duration": 100, "images": [[2728, 465]]}, {"duration": 450, "images": [[2852, 465]]}, {"duration": 200, "images": [[2976, 465]]}, {"duration": 100, "images": [[3100, 465]], "exitBranch": 26}, {"duration": 100, "images": [[3224, 465]], "sound": "7"}, {"duration": 100, "images": [[0, 558]], "exitBranch": 28}, {"duration": 100, "images": [[124, 558]]}, {"duration": 100, "images": [[248, 558]], "exitBranch": 30}, {"duration": 100, "images": [[372, 558]]}, {"duration": 600, "images": [[496, 558]], "exitBranch": 32}, {"duration": 100, "images": [[620, 558]], "sound": "7"}, {"duration": 100, "images": [[744, 558]], "exitBranch": 34}, {"duration": 100, "images": [[868, 558]]}, {"duration": 100, "images": [[992, 558]], "exitBranch": 36}, {"duration": 100, "images": [[1116, 558]]}, {"duration": 600, "images": [[1240, 558]], "exitBranch": 38}, {"duration": 100, "images": [[1364, 558]], "sound": "7"}, {"duration": 100, "images": [[1488, 558]], "exitBranch": 40}, {"duration": 100, "images": [[1612, 558]]}, {"duration": 100, "images": [[1736, 558]], "exitBranch": 44}, {"duration": 600, "images": [[1860, 558]]}, {"duration": 100, "images": [[1984, 558]], "exitBranch": 44, "sound": "7"}, {"duration": 100, "images": [[2108, 558]]}, {"duration": 100, "images": [[2232, 558]], "exitBranch": 46}, {"duration": 100, "images": [[2356, 558]]}, {"duration": 100, "images": [[2480, 558]], "exitBranch": 48}, {"duration": 100, "images": [[2604, 558]]}, {"duration": 100, "images": [[2728, 558]], "exitBranch": 51}, {"duration": 600, "images": [[2852, 558]]}, {"duration": 100, "images": [[2976, 558]]}, {"duration": 100, "images": [[3100, 558]], "exitBranch": 53}, {"duration": 100, "images": [[3224, 558]], "sound": "11"}, {"duration": 100, "images": [[0, 651]]}, {"duration": 100, "images": [[124, 651]]}, {"duration": 100, "images": [[248, 651]]}, {"duration": 100, "images": [[372, 651]], "exitBranch": 58}, {"duration": 100, "images": [[496, 651]]}, {"duration": 100, "images": [[0, 0]]}]}, "Hide": {"frames": [{"duration": 10, "images": [[0, 0]]}, {"duration": 10, "images": [[2480, 0]]}, {"duration": 10, "images": [[2604, 0]]}, {"duration": 10, "images": [[2728, 0]]}, {"duration": 10}]}, "GetAttention": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[1240, 651]]}, {"duration": 100, "images": [[1364, 651]]}, {"duration": 100, "images": [[1488, 651]]}, {"duration": 100, "images": [[1612, 651]]}, {"duration": 100, "images": [[1736, 651]]}, {"duration": 100, "images": [[1860, 651]]}, {"duration": 100, "images": [[1984, 651]]}, {"duration": 100, "images": [[2108, 651]]}, {"duration": 100, "images": [[2232, 651]], "sound": "10"}, {"duration": 150, "images": [[2356, 651]]}, {"duration": 150, "images": [[2232, 651]], "sound": "10"}, {"duration": 150, "images": [[2356, 651]]}, {"duration": 150, "images": [[2232, 651]], "sound": "10"}, {"duration": 150, "images": [[2480, 651]]}, {"duration": 100, "images": [[2604, 651]]}, {"duration": 100, "images": [[2728, 651]]}, {"duration": 100, "images": [[2852, 651]]}, {"duration": 100, "images": [[2976, 651]]}, {"duration": 100, "images": [[3100, 651]]}, {"duration": 100, "images": [[3224, 651]]}, {"duration": 100, "images": [[0, 744]]}, {"duration": 100, "images": [[124, 744]], "exitBranch": 23}, {"duration": 100, "images": [[0, 0]]}]}, "Save": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[3100, 837]]}, {"duration": 130, "images": [[3224, 837]], "sound": "13"}, {"duration": 130, "images": [[0, 930]]}, {"duration": 100, "images": [[124, 930]]}, {"duration": 100, "images": [[248, 930]]}, {"duration": 100, "images": [[372, 930]]}, {"duration": 100, "images": [[496, 930]], "exitBranch": 10}, {"duration": 450, "images": [[620, 930]]}, {"duration": 100, "images": [[496, 930]], "exitBranch": 10}, {"duration": 100, "images": [[744, 930]]}, {"duration": 100, "images": [[868, 930]]}, {"duration": 100, "images": [[992, 930]]}, {"duration": 130, "images": [[1116, 930]], "sound": "8"}, {"duration": 130, "images": [[1240, 930]]}, {"duration": 130, "images": [[1364, 930]]}, {"duration": 130, "images": [[1488, 930]], "sound": "8"}, {"duration": 130, "images": [[1612, 930]], "sound": "8"}, {"duration": 130, "images": [[1736, 930]]}, {"duration": 130, "images": [[1860, 930]], "sound": "8"}, {"duration": 100, "images": [[1984, 930]]}, {"duration": 100, "images": [[2108, 930]], "sound": "9"}, {"duration": 160, "images": [[2232, 930]]}, {"duration": 100, "images": [[2356, 930]], "sound": "2"}, {"duration": 100, "images": [[2480, 930]]}, {"duration": 100, "images": [[2604, 930]]}, {"duration": 100, "images": [[2728, 930]], "exitBranch": 34}, {"duration": 450, "images": [[2852, 930]]}, {"duration": 100, "images": [[2976, 930]], "exitBranch": 34, "sound": "10"}, {"duration": 400, "images": [[3100, 930]]}, {"duration": 100, "images": [[3224, 930]], "exitBranch": 34}, {"duration": 100, "images": [[0, 1023]]}, {"duration": 100, "images": [[124, 1023]]}, {"duration": 100, "images": [[248, 1023]]}, {"duration": 100, "images": [[372, 1023]]}, {"duration": 100, "images": [[496, 1023]]}, {"duration": 100, "images": [[620, 1023]]}, {"duration": 100, "images": [[744, 1023]]}, {"duration": 100, "images": [[868, 1023]]}, {"duration": 100, "images": [[992, 1023]]}, {"duration": 100, "images": [[1116, 1023]]}, {"duration": 100, "images": [[0, 0]]}]}, "GetTechy": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[124, 93]]}, {"duration": 100, "images": [[248, 93]]}, {"duration": 100, "images": [[372, 93]]}, {"duration": 100, "images": [[496, 93]], "sound": "14"}, {"duration": 100, "images": [[620, 93]]}, {"duration": 100, "images": [[744, 93]]}, {"duration": 100, "images": [[868, 93]]}, {"duration": 100, "images": [[992, 93]]}, {"duration": 100, "images": [[1116, 93]]}, {"duration": 100, "images": [[1240, 93]]}, {"duration": 100, "images": [[1364, 93]]}, {"duration": 100, "images": [[1488, 93]]}, {"duration": 100, "images": [[1612, 93]]}, {"duration": 100, "images": [[1736, 93]], "sound": "4"}, {"duration": 100, "images": [[1860, 93]]}, {"duration": 100, "images": [[1984, 93]]}, {"duration": 100, "images": [[2108, 93]]}, {"duration": 100, "images": [[2232, 93]]}, {"duration": 100, "images": [[2356, 93]]}, {"duration": 100, "images": [[2480, 93]]}, {"duration": 100, "images": [[2604, 93]]}, {"duration": 100, "images": [[2728, 93]]}, {"duration": 100, "images": [[2852, 93]]}, {"duration": 100, "images": [[2976, 93]]}, {"duration": 100, "images": [[3100, 93]]}, {"duration": 100, "images": [[3224, 93]]}, {"duration": 100, "images": [[0, 186]]}, {"duration": 100, "images": [[124, 186]]}, {"duration": 100, "images": [[248, 186]]}, {"duration": 100, "images": [[372, 186]]}, {"duration": 100, "images": [[496, 186]]}, {"duration": 100, "images": [[620, 186]], "exitBranch": 33, "branching": {"branches": [{"frameIndex": 21, "weight": 100}]}}, {"duration": 100, "images": [[744, 186]]}, {"duration": 100, "images": [[868, 186]]}, {"duration": 100, "images": [[992, 186]]}, {"duration": 100, "images": [[992, 93]]}, {"duration": 100, "images": [[868, 93]]}, {"duration": 100, "images": [[744, 93]], "sound": "14"}, {"duration": 100, "images": [[620, 93]]}, {"duration": 100, "images": [[496, 93]]}, {"duration": 100, "images": [[372, 93]]}, {"duration": 100, "images": [[248, 93]]}, {"duration": 100, "images": [[124, 93]]}, {"duration": 100, "images": [[0, 0]]}]}, "GestureUp": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[868, 744]]}, {"duration": 100, "images": [[992, 744]]}, {"duration": 100, "images": [[1116, 744]]}, {"duration": 100, "images": [[1240, 744]]}, {"duration": 100, "images": [[1364, 744]], "exitBranch": 11}, {"duration": 100, "images": [[1488, 744]]}, {"duration": 100, "images": [[1612, 744]], "branching": {"branches": [{"frameIndex": 5, "weight": 50}]}}, {"duration": 100, "images": [[1736, 744]]}, {"duration": 1200, "images": [[1860, 744]]}, {"duration": 100, "images": [[1984, 744]]}, {"duration": 100, "images": [[1364, 744]]}, {"duration": 100, "images": [[1240, 744]]}, {"duration": 100, "images": [[1116, 744]]}, {"duration": 100, "images": [[992, 744]]}, {"duration": 100, "images": [[868, 744]]}, {"duration": 100, "images": [[0, 0]]}]}, "Idle1_1": {"frames": [{"duration": 100, "images": [[0, 0]], "branching": {"branches": [{"frameIndex": 37, "weight": 20}]}}, {"duration": 100, "images": [[2108, 744]], "exitBranch": 2, "branching": {"branches": [{"frameIndex": 1, "weight": 95}]}}, {"duration": 100, "images": [[2232, 744]], "exitBranch": 16}, {"duration": 100, "images": [[2356, 744]]}, {"duration": 300, "images": [[2480, 744]], "exitBranch": 5, "branching": {"branches": [{"frameIndex": 4, "weight": 95}]}}, {"duration": 100, "images": [[2604, 744]], "exitBranch": 16, "branching": {"branches": [{"frameIndex": 9, "weight": 25}, {"frameIndex": 12, "weight": 25}, {"frameIndex": 15, "weight": 25}]}}, {"duration": 100, "images": [[2728, 744]]}, {"duration": 300, "images": [[2852, 744]], "exitBranch": 8, "branching": {"branches": [{"frameIndex": 7, "weight": 94}, {"frameIndex": 5, "weight": 3}]}}, {"duration": 100, "images": [[2976, 744]], "exitBranch": 16}, {"duration": 100, "images": [[3100, 744]]}, {"duration": 300, "images": [[3224, 744]], "exitBranch": 11, "branching": {"branches": [{"frameIndex": 10, "weight": 94}, {"frameIndex": 8, "weight": 2}, {"frameIndex": 5, "weight": 2}]}}, {"duration": 100, "images": [[0, 837]], "exitBranch": 16}, {"duration": 100, "images": [[124, 837]]}, {"duration": 300, "images": [[248, 837]], "exitBranch": 14, "branching": {"branches": [{"frameIndex": 13, "weight": 93}, {"frameIndex": 11, "weight": 3}, {"frameIndex": 5, "weight": 2}]}}, {"duration": 100, "images": [[372, 837]], "exitBranch": 16}, {"duration": 100, "images": [[496, 837]]}, {"duration": 300, "images": [[620, 837]], "exitBranch": 17, "branching": {"branches": [{"frameIndex": 16, "weight": 95}]}}, {"duration": 100, "images": [[744, 837]], "exitBranch": 36, "branching": {"branches": [{"frameIndex": 36, "weight": 90}]}}, {"duration": 100, "images": [[868, 837]]}, {"duration": 300, "images": [[992, 837]], "exitBranch": 35}, {"duration": 100, "images": [[1116, 837]]}, {"duration": 100, "images": [[1240, 837]], "exitBranch": 35}, {"duration": 300, "images": [[1364, 837]], "exitBranch": 23, "branching": {"branches": [{"frameIndex": 22, "weight": 94}, {"frameIndex": 23, "weight": 3}]}}, {"duration": 100, "images": [[1488, 837]], "exitBranch": 35, "branching": {"branches": [{"frameIndex": 24, "weight": 25}, {"frameIndex": 27, "weight": 25}, {"frameIndex": 30, "weight": 25}]}}, {"duration": 100, "images": [[1612, 837]]}, {"duration": 300, "images": [[1736, 837]], "exitBranch": 26, "branching": {"branches": [{"frameIndex": 25, "weight": 94}, {"frameIndex": 23, "weight": 3}]}}, {"duration": 100, "images": [[1860, 837]], "exitBranch": 35}, {"duration": 100, "images": [[1984, 837]]}, {"duration": 300, "images": [[2108, 837]], "exitBranch": 29, "branching": {"branches": [{"frameIndex": 28, "weight": 94}, {"frameIndex": 23, "weight": 3}]}}, {"duration": 100, "images": [[2232, 837]], "exitBranch": 35}, {"duration": 100, "images": [[2356, 837]]}, {"duration": 300, "images": [[2480, 837]], "exitBranch": 32, "branching": {"branches": [{"frameIndex": 31, "weight": 94}, {"frameIndex": 23, "weight": 3}]}}, {"duration": 100, "images": [[2604, 837]], "exitBranch": 35}, {"duration": 100, "images": [[2728, 837]]}, {"duration": 300, "images": [[2852, 837]], "exitBranch": 35, "branching": {"branches": [{"frameIndex": 34, "weight": 80}]}}, {"duration": 100, "images": [[2976, 837]]}, {"duration": 100, "images": [[0, 0]], "exitBranch": 42}, {"duration": 100, "images": [[1116, 186]]}, {"duration": 100, "images": [[1240, 186]]}, {"duration": 900, "images": [[1364, 186]]}, {"duration": 100, "images": [[1240, 186]]}, {"duration": 100, "images": [[1116, 186]]}, {"duration": 100, "images": [[0, 0]]}]}, "Processing": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[1240, 1023]], "sound": "14"}, {"duration": 100, "images": [[1364, 1023]]}, {"duration": 100, "images": [[1488, 1023]]}, {"duration": 100, "images": [[1612, 1023]], "exitBranch": 33}, {"duration": 100, "images": [[1736, 1023]]}, {"duration": 100, "images": [[1860, 1023]]}, {"duration": 100, "images": [[1984, 1023]]}, {"duration": 100, "images": [[2108, 1023]], "sound": "11"}, {"duration": 100, "images": [[2232, 1023]], "exitBranch": 31}, {"duration": 100, "images": [[2356, 1023]]}, {"duration": 100, "images": [[2480, 1023]]}, {"duration": 100, "images": [[2604, 1023]]}, {"duration": 100, "images": [[2728, 1023]], "exitBranch": 31}, {"duration": 100, "images": [[2852, 1023]]}, {"duration": 100, "images": [[2976, 1023]]}, {"duration": 100, "images": [[3100, 1023]]}, {"duration": 100, "images": [[3224, 1023]]}, {"duration": 100, "images": [[0, 1116]], "sound": "11"}, {"duration": 100, "images": [[124, 1116]]}, {"duration": 100, "images": [[248, 1116]]}, {"duration": 100, "images": [[372, 1116]]}, {"duration": 100, "images": [[496, 1116]]}, {"duration": 100, "images": [[620, 1116]]}, {"duration": 100, "images": [[744, 1116]]}, {"duration": 100, "images": [[868, 1116]]}, {"duration": 100, "images": [[992, 1116]]}, {"duration": 100, "images": [[1116, 1116]], "exitBranch": 28, "branching": {"branches": [{"frameIndex": 7, "weight": 100}]}}, {"duration": 100, "images": [[1240, 1116]], "sound": "11"}, {"duration": 100, "images": [[1364, 1116]]}, {"duration": 100, "images": [[1488, 1116]]}, {"duration": 100, "images": [[1612, 1116]]}, {"duration": 100, "images": [[1736, 1116]]}, {"duration": 100, "images": [[1860, 1116]]}, {"duration": 100, "images": [[1984, 1116]]}, {"duration": 100, "images": [[2108, 1116]]}, {"duration": 100, "images": [[2232, 1116]]}, {"duration": 100, "images": [[0, 0]]}]}, "Alert": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[2356, 1116]]}, {"duration": 100, "images": [[2480, 1116]]}, {"duration": 100, "images": [[2604, 1116]]}, {"duration": 100, "images": [[2728, 1116]]}, {"duration": 100, "images": [[2852, 1116]]}, {"duration": 100, "images": [[2976, 1116]], "sound": "6"}, {"duration": 100, "images": [[3100, 1116]]}, {"duration": 100, "images": [[3224, 1116]]}, {"duration": 100, "images": [[0, 1209]]}, {"duration": 500, "images": [[124, 1209]], "exitBranch": 13}, {"duration": 100, "images": [[248, 1209]], "exitBranch": 13}, {"duration": 100, "images": [[372, 1209]]}, {"duration": 100, "images": [[496, 1209]]}, {"duration": 100, "images": [[620, 1209]]}, {"duration": 100, "images": [[744, 1209]]}, {"duration": 100, "images": [[868, 1209]]}, {"duration": 100, "images": [[992, 1209]]}, {"duration": 100, "images": [[1116, 1209]]}, {"duration": 100, "images": [[0, 0]]}]}, "LookUpRight": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[248, 744]], "exitBranch": 5}, {"duration": 100, "images": [[372, 744]], "exitBranch": 4}, {"duration": 1200, "images": [[496, 744]]}, {"duration": 100, "images": [[620, 744]]}, {"duration": 100, "images": [[744, 744]]}, {"duration": 100, "images": [[0, 0]]}]}, "IdleSideToSide": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[2108, 744]], "exitBranch": 2, "branching": {"branches": [{"frameIndex": 1, "weight": 95}]}}, {"duration": 100, "images": [[2232, 744]], "exitBranch": 16}, {"duration": 100, "images": [[2356, 744]]}, {"duration": 300, "images": [[2480, 744]], "exitBranch": 5, "branching": {"branches": [{"frameIndex": 4, "weight": 95}]}}, {"duration": 100, "images": [[2604, 744]], "exitBranch": 16, "branching": {"branches": [{"frameIndex": 9, "weight": 25}, {"frameIndex": 12, "weight": 25}, {"frameIndex": 15, "weight": 25}]}}, {"duration": 100, "images": [[2728, 744]]}, {"duration": 300, "images": [[2852, 744]], "exitBranch": 8, "branching": {"branches": [{"frameIndex": 7, "weight": 92}, {"frameIndex": 5, "weight": 5}]}}, {"duration": 100, "images": [[2976, 744]], "exitBranch": 16}, {"duration": 100, "images": [[3100, 744]]}, {"duration": 300, "images": [[3224, 744]], "exitBranch": 11, "branching": {"branches": [{"frameIndex": 10, "weight": 91}, {"frameIndex": 8, "weight": 5}, {"frameIndex": 5, "weight": 2}]}}, {"duration": 100, "images": [[0, 837]], "exitBranch": 16}, {"duration": 100, "images": [[124, 837]]}, {"duration": 300, "images": [[248, 837]], "exitBranch": 14, "branching": {"branches": [{"frameIndex": 13, "weight": 91}, {"frameIndex": 11, "weight": 3}, {"frameIndex": 5, "weight": 2}]}}, {"duration": 100, "images": [[372, 837]], "exitBranch": 16}, {"duration": 100, "images": [[496, 837]]}, {"duration": 300, "images": [[620, 837]], "exitBranch": 17, "branching": {"branches": [{"frameIndex": 16, "weight": 75}]}}, {"duration": 100, "images": [[744, 837]], "exitBranch": 36, "branching": {"branches": [{"frameIndex": 36, "weight": 90}]}}, {"duration": 100, "images": [[868, 837]]}, {"duration": 300, "images": [[992, 837]], "exitBranch": 35}, {"duration": 100, "images": [[1116, 837]]}, {"duration": 100, "images": [[1240, 837]], "exitBranch": 35}, {"duration": 300, "images": [[1364, 837]], "exitBranch": 23, "branching": {"branches": [{"frameIndex": 22, "weight": 91}, {"frameIndex": 23, "weight": 5}]}}, {"duration": 100, "images": [[1488, 837]], "exitBranch": 35, "branching": {"branches": [{"frameIndex": 24, "weight": 25}, {"frameIndex": 27, "weight": 25}, {"frameIndex": 30, "weight": 25}]}}, {"duration": 100, "images": [[1612, 837]]}, {"duration": 0, "images": [[1736, 837]], "exitBranch": 26, "branching": {"branches": [{"frameIndex": 25, "weight": 91}, {"frameIndex": 23, "weight": 5}]}}, {"duration": 100, "images": [[1860, 837]], "exitBranch": 35}, {"duration": 100, "images": [[1984, 837]]}, {"duration": 300, "images": [[2108, 837]], "exitBranch": 29, "branching": {"branches": [{"frameIndex": 28, "weight": 91}, {"frameIndex": 23, "weight": 5}]}}, {"duration": 100, "images": [[2232, 837]], "exitBranch": 35}, {"duration": 100, "images": [[2356, 837]]}, {"duration": 300, "images": [[2480, 837]], "exitBranch": 32, "branching": {"branches": [{"frameIndex": 31, "weight": 91}, {"frameIndex": 23, "weight": 5}]}}, {"duration": 100, "images": [[2604, 837]], "exitBranch": 35}, {"duration": 100, "images": [[2728, 837]]}, {"duration": 300, "images": [[2852, 837]], "exitBranch": 35, "branching": {"branches": [{"frameIndex": 34, "weight": 80}]}}, {"duration": 100, "images": [[2976, 837]]}, {"duration": 100, "images": [[0, 0]]}]}, "GoodBye": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 34, "sound": "15", "branching": {"branches": [{"frameIndex": 34, "weight": 50}]}}, {"duration": 100, "images": [[2356, 2883]]}, {"duration": 250, "images": [[2480, 2883]]}, {"duration": 100, "images": [[2604, 2883]], "sound": "13"}, {"duration": 100, "images": [[2728, 2883]]}, {"duration": 100, "images": [[2852, 2883]]}, {"duration": 100, "images": [[2976, 2883]]}, {"duration": 100, "images": [[3100, 2883]], "sound": "12"}, {"duration": 100, "images": [[3224, 2883]]}, {"duration": 100, "images": [[0, 2976]]}, {"duration": 100, "images": [[124, 2976]]}, {"duration": 100, "images": [[248, 2976]]}, {"duration": 100, "images": [[372, 2976]]}, {"duration": 100, "images": [[496, 2976]]}, {"duration": 200, "images": [[620, 2976]]}, {"duration": 200, "images": [[744, 2976]], "sound": "10"}, {"duration": 200, "images": [[620, 2976]]}, {"duration": 200, "images": [[868, 2976]]}, {"duration": 100, "images": [[992, 2976]]}, {"duration": 100, "images": [[1116, 2976]]}, {"duration": 200, "images": [[1240, 2976]]}, {"duration": 100, "images": [[1364, 2976]], "sound": "14"}, {"duration": 100, "images": [[1488, 2976]]}, {"duration": 100, "images": [[1612, 2976]]}, {"duration": 100, "images": [[1736, 2976]]}, {"duration": 100, "images": [[1860, 2976]]}, {"duration": 100, "images": [[1984, 2976]]}, {"duration": 100, "images": [[2108, 2976]]}, {"duration": 100, "images": [[2232, 2976]]}, {"duration": 100, "images": [[2356, 2976]]}, {"duration": 100, "images": [[2480, 2976]], "sound": "11"}, {"duration": 100, "images": [[2604, 2976]]}, {"duration": 100, "images": [[2728, 2976]]}, {"duration": 100, "images": [[2852, 2976]], "exitBranch": 37, "branching": {"branches": [{"frameIndex": 37, "weight": 100}]}}, {"duration": 100, "images": [[1240, 1395]]}, {"duration": 100, "images": [[1116, 1395]]}, {"duration": 100, "images": [[992, 1395]]}, {"duration": 100}]}, "LookLeft": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[248, 1488]], "exitBranch": 5}, {"duration": 100, "images": [[372, 1488]], "exitBranch": 4}, {"duration": 1200, "images": [[496, 1488]]}, {"duration": 100, "images": [[620, 1488]]}, {"duration": 100, "images": [[744, 1488]]}, {"duration": 100, "images": [[0, 0]]}]}, "IdleHeadScratch": {"frames": [{"duration": 100, "images": [[1984, 2418]], "branching": {"branches": [{"frameIndex": 18, "weight": 85}]}}, {"duration": 100, "images": [[2108, 2418]]}, {"duration": 100, "images": [[2232, 2418]], "exitBranch": 16}, {"duration": 100, "images": [[2356, 2418]]}, {"duration": 100, "images": [[2480, 2418]]}, {"duration": 100, "images": [[2604, 2418]]}, {"duration": 100, "images": [[2728, 2418]], "exitBranch": 16}, {"duration": 100, "images": [[2852, 2418]]}, {"duration": 100, "images": [[2976, 2418]]}, {"duration": 100, "images": [[3100, 2418]], "exitBranch": 16, "branching": {"branches": [{"frameIndex": 6, "weight": 80}]}}, {"duration": 100, "images": [[3224, 2418]], "exitBranch": 16}, {"duration": 100, "images": [[0, 2511]]}, {"duration": 100, "images": [[124, 2511]], "exitBranch": 16}, {"duration": 100, "images": [[248, 2511]]}, {"duration": 100, "images": [[372, 2511]]}, {"duration": 100, "images": [[496, 2511]], "exitBranch": 16, "branching": {"branches": [{"frameIndex": 12, "weight": 80}]}}, {"duration": 100, "images": [[620, 2511]]}, {"duration": 100, "images": [[744, 2511]]}, {"duration": 100, "images": [[868, 2511]]}]}, "LookUpLeft": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[868, 1488]], "exitBranch": 5}, {"duration": 100, "images": [[992, 1488]], "exitBranch": 4}, {"duration": 1200, "images": [[1116, 1488]]}, {"duration": 100, "images": [[1240, 1488]]}, {"duration": 100, "images": [[1364, 1488]]}, {"duration": 100, "images": [[0, 0]]}]}, "CheckingSomething": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[1488, 1488]], "sound": "13"}, {"duration": 100, "images": [[1612, 1488]]}, {"duration": 100, "images": [[1736, 1488]]}, {"duration": 100, "images": [[1860, 1488]]}, {"duration": 100, "images": [[1984, 1488]]}, {"duration": 100, "images": [[2108, 1488]]}, {"duration": 100, "images": [[2232, 1488]]}, {"duration": 200, "images": [[2356, 1488]]}, {"duration": 200, "images": [[2480, 1488]]}, {"duration": 200, "images": [[2604, 1488]]}, {"duration": 100, "images": [[2728, 1488]], "sound": "10"}, {"duration": 100, "images": [[2852, 1488]], "exitBranch": 52}, {"duration": 140, "images": [[2976, 1488]]}, {"duration": 100, "images": [[3100, 1488]]}, {"duration": 100, "images": [[3224, 1488]]}, {"duration": 100, "images": [[0, 1581]]}, {"duration": 200, "images": [[124, 1581]]}, {"duration": 100, "images": [[248, 1581]]}, {"duration": 100, "images": [[372, 1581]]}, {"duration": 100, "images": [[496, 1581]]}, {"duration": 200, "images": [[620, 1581]], "exitBranch": 22, "branching": {"branches": [{"frameIndex": 21, "weight": 50}]}}, {"duration": 100, "images": [[744, 1581]]}, {"duration": 100, "images": [[868, 1581]]}, {"duration": 200, "images": [[992, 1581]], "exitBranch": 25, "branching": {"branches": [{"frameIndex": 24, "weight": 50}]}}, {"duration": 100, "images": [[1116, 1581]]}, {"duration": 100, "images": [[1240, 1581]]}, {"duration": 100, "images": [[1364, 1581]]}, {"duration": 200, "images": [[1488, 1581]], "exitBranch": 29, "branching": {"branches": [{"frameIndex": 28, "weight": 50}]}}, {"duration": 100, "images": [[1612, 1581]]}, {"duration": 100, "images": [[1736, 1581]]}, {"duration": 200, "images": [[1860, 1581]], "exitBranch": 32, "branching": {"branches": [{"frameIndex": 31, "weight": 50}]}}, {"duration": 100, "images": [[1984, 1581]]}, {"duration": 100, "images": [[2108, 1581]]}, {"duration": 100, "images": [[2232, 1581]]}, {"duration": 100, "images": [[2356, 1581]]}, {"duration": 200, "images": [[2480, 1581]], "exitBranch": 37, "branching": {"branches": [{"frameIndex": 36, "weight": 50}]}}, {"duration": 100, "images": [[2604, 1581]]}, {"duration": 100, "images": [[2728, 1581]]}, {"duration": 200, "images": [[2852, 1581]], "exitBranch": 40, "branching": {"branches": [{"frameIndex": 39, "weight": 50}]}}, {"duration": 100, "images": [[2976, 1581]]}, {"duration": 100, "images": [[3100, 1581]], "exitBranch": 50}, {"duration": 100, "images": [[3224, 1581]], "branching": {"branches": [{"frameIndex": 14, "weight": 75}]}}, {"duration": 100, "images": [[0, 1674]]}, {"duration": 200, "images": [[124, 1674]], "exitBranch": 51, "branching": {"branches": [{"frameIndex": 44, "weight": 50}]}}, {"duration": 100, "images": [[248, 1674]]}, {"duration": 100, "images": [[372, 1674]]}, {"duration": 100, "images": [[496, 1674]]}, {"duration": 100, "images": [[620, 1674]], "exitBranch": 49, "branching": {"branches": [{"frameIndex": 48, "weight": 85}]}}, {"duration": 100, "images": [[744, 1674]], "sound": "10"}, {"duration": 100, "images": [[868, 1674]], "exitBranch": 52, "branching": {"branches": [{"frameIndex": 10, "weight": 100}]}}, {"duration": 100, "images": [[992, 1674]]}, {"duration": 100, "images": [[1116, 1674]], "sound": "14"}, {"duration": 100, "images": [[1240, 1674]]}, {"duration": 100, "images": [[0, 0]]}]}, "Hearing_1": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[2356, 1116]]}, {"duration": 100, "images": [[2480, 1116]]}, {"duration": 100, "images": [[2604, 1116]]}, {"duration": 100, "images": [[2728, 1116]]}, {"duration": 100, "images": [[2852, 1116]]}, {"duration": 100, "images": [[2976, 1116]], "sound": "6"}, {"duration": 100, "images": [[3100, 1116]]}, {"duration": 100, "images": [[3224, 1116]]}, {"duration": 100, "images": [[0, 1209]]}, {"duration": 500, "images": [[124, 1209]], "exitBranch": 32}, {"duration": 100, "images": [[1364, 1674]], "branching": {"branches": [{"frameIndex": 6, "weight": 60}]}}, {"duration": 100, "images": [[2976, 1116]]}, {"duration": 100, "images": [[3100, 1116]], "exitBranch": 32}, {"duration": 100, "images": [[3224, 1116]]}, {"duration": 100, "images": [[0, 1209]], "exitBranch": 32}, {"duration": 500, "images": [[1364, 1674]], "branching": {"branches": [{"frameIndex": 12, "weight": 50}]}}, {"duration": 100, "images": [[1488, 1674]], "exitBranch": 32}, {"duration": 100, "images": [[1612, 1674]]}, {"duration": 100, "images": [[1736, 1674]], "exitBranch": 32}, {"duration": 100, "images": [[1860, 1674]]}, {"duration": 400, "images": [[1984, 1674]], "exitBranch": 32}, {"duration": 100, "images": [[2108, 1674]], "branching": {"branches": [{"frameIndex": 18, "weight": 50}]}}, {"duration": 100, "images": [[2232, 1674]], "exitBranch": 32}, {"duration": 100, "images": [[2356, 1674]]}, {"duration": 100, "images": [[2480, 1674]], "exitBranch": 32}, {"duration": 500, "images": [[2604, 1674]], "exitBranch": 32}, {"duration": 100, "images": [[2728, 1674]], "branching": {"branches": [{"frameIndex": 17, "weight": 50}]}}, {"duration": 100, "images": [[2852, 1674]], "exitBranch": 32}, {"duration": 100, "images": [[2976, 1674]]}, {"duration": 100, "images": [[248, 1209]], "exitBranch": 32, "branching": {"branches": [{"frameIndex": 12, "weight": 100}]}}, {"duration": 100, "images": [[372, 1209]]}, {"duration": 100, "images": [[496, 1209]]}, {"duration": 100, "images": [[620, 1209]]}, {"duration": 100, "images": [[744, 1209]]}, {"duration": 100, "images": [[868, 1209]]}, {"duration": 100, "images": [[992, 1209]]}, {"duration": 100, "images": [[1116, 1209]]}, {"duration": 100, "images": [[0, 0]]}]}, "GetWizardy": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 10, "images": [[124, 0]]}, {"duration": 10, "images": [[248, 0]]}, {"duration": 10, "images": [[372, 0]], "sound": "14"}, {"duration": 10, "images": [[496, 0]]}, {"duration": 10, "images": [[620, 0]]}, {"duration": 10, "images": [[744, 0]]}, {"duration": 10, "images": [[868, 0]]}, {"duration": 10, "images": [[992, 0]], "sound": "1"}, {"duration": 100, "images": [[1116, 0]]}, {"duration": 100, "images": [[1240, 0]]}, {"duration": 100, "images": [[1364, 0]]}, {"duration": 1200, "images": [[1488, 0]]}, {"duration": 100, "images": [[1612, 0]], "sound": "10"}, {"duration": 100, "images": [[1736, 0]]}, {"duration": 1200, "images": [[1488, 0]]}, {"duration": 100, "images": [[1860, 0]]}, {"duration": 100, "images": [[1984, 0]]}, {"duration": 100, "images": [[2108, 0]]}, {"duration": 100, "images": [[2232, 0]]}, {"duration": 100, "images": [[2356, 0]], "exitBranch": 21}, {"duration": 100, "images": [[0, 0]]}]}, "IdleFingerTap": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[2976, 2976]]}, {"duration": 100, "images": [[3100, 2976]]}, {"duration": 100, "images": [[3224, 2976]], "exitBranch": 8}, {"duration": 100, "images": [[0, 3069]], "exitBranch": 8}, {"duration": 100, "images": [[124, 3069]], "branching": {"branches": [{"frameIndex": 7, "weight": 3}]}}, {"duration": 150, "images": [[248, 3069]], "exitBranch": 7, "branching": {"branches": [{"frameIndex": 6, "weight": 98}, {"frameIndex": 5, "weight": 2}]}}, {"duration": 100, "images": [[372, 3069]], "exitBranch": 8}, {"duration": 100, "images": [[496, 3069]]}, {"duration": 100, "images": [[620, 3069]]}, {"duration": 100, "images": [[0, 0]]}]}, "GestureLeft": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[3100, 1674]]}, {"duration": 100, "images": [[3224, 1674]]}, {"duration": 100, "images": [[0, 1767]]}, {"duration": 100, "images": [[124, 1767]], "exitBranch": 12}, {"duration": 100, "images": [[248, 1767]]}, {"duration": 100, "images": [[372, 1767]], "branching": {"branches": [{"frameIndex": 4, "weight": 60}]}}, {"duration": 100, "images": [[496, 1767]]}, {"duration": 100, "images": [[620, 1767]]}, {"duration": 1200, "images": [[744, 1767]]}, {"duration": 100, "images": [[868, 1767]]}, {"duration": 450, "images": [[992, 1767]]}, {"duration": 100, "images": [[0, 1767]]}, {"duration": 100, "images": [[3224, 1674]]}, {"duration": 100, "images": [[3100, 1674]]}, {"duration": 100, "images": [[0, 0]]}]}, "Wave": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15", "branching": {"branches": [{"frameIndex": 15, "weight": 33}]}}, {"duration": 100, "images": [[1116, 1767]]}, {"duration": 100, "images": [[1240, 1767]]}, {"duration": 100, "images": [[1364, 1767]], "exitBranch": 13}, {"duration": 100, "images": [[1488, 1767]], "exitBranch": 13}, {"duration": 100, "images": [[1612, 1767]], "exitBranch": 13}, {"duration": 100, "images": [[1736, 1767]], "branching": {"branches": [{"frameIndex": 9, "weight": 100}]}}, {"duration": 100, "images": [[1860, 1767]], "exitBranch": 11, "sound": "10"}, {"duration": 100, "images": [[1984, 1767]]}, {"duration": 100, "images": [[2108, 1767]], "exitBranch": 11, "sound": "10"}, {"duration": 100, "images": [[2232, 1767]]}, {"duration": 100, "images": [[2356, 1767]], "sound": "10"}, {"duration": 100, "images": [[2480, 1767]]}, {"duration": 100, "images": [[2604, 1767]]}, {"duration": 100, "images": [[2728, 1767]], "exitBranch": 26, "branching": {"branches": [{"frameIndex": 26, "weight": 100}]}}, {"duration": 100, "images": [[2852, 1767]]}, {"duration": 100, "images": [[2976, 1767]]}, {"duration": 100, "images": [[3100, 1767]], "sound": "12"}, {"duration": 100, "images": [[3224, 1767]]}, {"duration": 100, "images": [[0, 1860]]}, {"duration": 100, "images": [[124, 1860]], "exitBranch": 24, "sound": "10"}, {"duration": 1200, "images": [[248, 1860]]}, {"duration": 100, "images": [[372, 1860]], "exitBranch": 24, "sound": "10"}, {"duration": 1300, "images": [[248, 1860]]}, {"duration": 50, "images": [[496, 1860]]}, {"duration": 50, "images": [[2976, 1767]]}, {"duration": 100, "images": [[0, 0]]}]}, "GestureRight": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[620, 1860]]}, {"duration": 100, "images": [[744, 1860]]}, {"duration": 100, "images": [[868, 1860]]}, {"duration": 100, "images": [[992, 1860]]}, {"duration": 100, "images": [[1116, 1860]], "exitBranch": 11}, {"duration": 100, "images": [[1240, 1860]]}, {"duration": 100, "images": [[1364, 1860]], "branching": {"branches": [{"frameIndex": 5, "weight": 50}]}}, {"duration": 100, "images": [[1488, 1860]]}, {"duration": 1200, "images": [[1612, 1860]]}, {"duration": 100, "images": [[1736, 1860]]}, {"duration": 550, "images": [[1116, 1860]]}, {"duration": 100, "images": [[992, 1860]]}, {"duration": 100, "images": [[868, 1860]]}, {"duration": 100, "images": [[744, 1860]]}, {"duration": 100, "images": [[620, 1860]]}, {"duration": 100, "images": [[0, 0]]}]}, "Writing": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[1860, 1860]]}, {"duration": 100, "images": [[1984, 1860]]}, {"duration": 100, "images": [[2108, 1860]]}, {"duration": 100, "images": [[2232, 1860]]}, {"duration": 100, "images": [[2356, 1860]]}, {"duration": 100, "images": [[2480, 1860]]}, {"duration": 100, "images": [[2604, 1860]]}, {"duration": 100, "images": [[2728, 1860]], "sound": "11"}, {"duration": 100, "images": [[2852, 1860]]}, {"duration": 100, "images": [[2976, 1860]]}, {"duration": 100, "images": [[3100, 1860]]}, {"duration": 100, "images": [[3224, 1860]], "branching": {"branches": [{"frameIndex": 26, "weight": 45}, {"frameIndex": 32, "weight": 25}, {"frameIndex": 42, "weight": 15}]}}, {"duration": 100, "images": [[0, 1953]], "exitBranch": 55}, {"duration": 100, "images": [[124, 1953]], "exitBranch": 55}, {"duration": 100, "images": [[248, 1953]]}, {"duration": 200, "images": [[372, 1953]]}, {"duration": 200, "images": [[496, 1953]], "exitBranch": 55}, {"duration": 200, "images": [[620, 1953]]}, {"duration": 200, "images": [[744, 1953]]}, {"duration": 200, "images": [[868, 1953]], "exitBranch": 55}, {"duration": 200, "images": [[992, 1953]]}, {"duration": 200, "images": [[1116, 1953]]}, {"duration": 200, "images": [[1240, 1953]], "exitBranch": 55}, {"duration": 200, "images": [[1364, 1953]]}, {"duration": 200, "images": [[1488, 1953]], "branching": {"branches": [{"frameIndex": 32, "weight": 20}, {"frameIndex": 42, "weight": 15}]}}, {"duration": 100, "images": [[1612, 1953]], "exitBranch": 56}, {"duration": 100, "images": [[1736, 1953]]}, {"duration": 400, "images": [[1860, 1953]], "branching": {"branches": [{"frameIndex": 28, "weight": 80}]}}, {"duration": 100, "images": [[1984, 1953]], "exitBranch": 30}, {"duration": 400, "images": [[2108, 1953]], "exitBranch": 55, "branching": {"branches": [{"frameIndex": 30, "weight": 75}]}}, {"duration": 100, "images": [[2232, 1953]], "exitBranch": 55, "branching": {"branches": [{"frameIndex": 13, "weight": 25}, {"frameIndex": 42, "weight": 20}]}}, {"duration": 100, "images": [[2356, 1953]]}, {"duration": 100, "images": [[2480, 1953]]}, {"duration": 200, "images": [[2604, 1953]]}, {"duration": 200, "images": [[2728, 1953]], "exitBranch": 54}, {"duration": 200, "images": [[2852, 1953]]}, {"duration": 200, "images": [[2976, 1953]], "exitBranch": 54}, {"duration": 100, "images": [[3100, 1953]]}, {"duration": 200, "images": [[3224, 1953]]}, {"duration": 200, "images": [[0, 2046]], "exitBranch": 55}, {"duration": 200, "images": [[124, 2046]], "branching": {"branches": [{"frameIndex": 13, "weight": 25}, {"frameIndex": 26, "weight": 25}, {"frameIndex": 32, "weight": 25}]}}, {"duration": 100, "images": [[248, 2046]]}, {"duration": 100, "images": [[372, 2046]], "exitBranch": 55}, {"duration": 100, "images": [[496, 2046]]}, {"duration": 100, "images": [[620, 2046]]}, {"duration": 100, "images": [[744, 2046]]}, {"duration": 100, "images": [[868, 2046]]}, {"duration": 100, "images": [[992, 2046]]}, {"duration": 100, "images": [[1116, 2046]]}, {"duration": 100, "images": [[1240, 2046]]}, {"duration": 100, "images": [[1364, 2046]]}, {"duration": 100, "images": [[1488, 2046]], "exitBranch": 57}, {"duration": 100, "images": [[1612, 2046]], "branching": {"branches": [{"frameIndex": 26, "weight": 33}, {"frameIndex": 32, "weight": 33}, {"frameIndex": 13, "weight": 34}]}}, {"duration": 100, "images": [[1736, 2046]]}, {"duration": 100, "images": [[1860, 2046]]}, {"duration": 100, "images": [[1984, 2046]], "sound": "11"}, {"duration": 100, "images": [[2108, 2046]]}, {"duration": 100, "images": [[2232, 2046]]}, {"duration": 100, "images": [[2356, 2046]]}, {"duration": 100, "images": [[0, 0]], "sound": "15"}]}, "IdleSnooze": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[2480, 2046]]}, {"duration": 100, "images": [[2604, 2046]]}, {"duration": 100, "images": [[2728, 2046]]}, {"duration": 100, "images": [[2852, 2046]]}, {"duration": 100, "images": [[2976, 2046]]}, {"duration": 100, "images": [[3100, 2046]]}, {"duration": 100, "images": [[3224, 2046]]}, {"duration": 400, "images": [[0, 2139]]}, {"duration": 100, "images": [[124, 2139]]}, {"duration": 100, "images": [[248, 2139]]}, {"duration": 100, "images": [[372, 2139]]}, {"duration": 100, "images": [[496, 2139]]}, {"duration": 100, "images": [[620, 2139]]}, {"duration": 100, "images": [[744, 2139]]}, {"duration": 100, "images": [[868, 2139]]}, {"duration": 100, "images": [[992, 2139]]}, {"duration": 100, "images": [[1116, 2139]], "exitBranch": 20}, {"duration": 100, "images": [[1240, 2139]]}, {"duration": 100, "images": [[1364, 2139]]}, {"duration": 100, "images": [[1488, 2139]], "exitBranch": 23}, {"duration": 100, "images": [[1612, 2139]]}, {"duration": 100, "images": [[1736, 2139]]}, {"duration": 100, "images": [[1860, 2139]], "exitBranch": 26}, {"duration": 100, "images": [[1984, 2139]]}, {"duration": 100, "images": [[2108, 2139]]}, {"duration": 100, "images": [[2232, 2139]], "exitBranch": 83}, {"duration": 200, "images": [[2356, 2139]]}, {"duration": 200, "images": [[2480, 2139]], "exitBranch": 83}, {"duration": 200, "images": [[2604, 2139]], "exitBranch": 83}, {"duration": 200, "images": [[2728, 2139]], "exitBranch": 83}, {"duration": 200, "images": [[2852, 2139]]}, {"duration": 200, "images": [[2976, 2139]], "exitBranch": 83}, {"duration": 200, "images": [[3100, 2139]]}, {"duration": 200, "images": [[3224, 2139]], "exitBranch": 83}, {"duration": 200, "images": [[0, 2232]]}, {"duration": 200, "images": [[124, 2232]]}, {"duration": 200, "images": [[248, 2232]], "exitBranch": 83, "branching": {"branches": [{"frameIndex": 27, "weight": 90}, {"frameIndex": 46, "weight": 5}, {"frameIndex": 52, "weight": 5}]}}, {"duration": 100, "images": [[372, 2232]]}, {"duration": 100, "images": [[496, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[620, 2232]]}, {"duration": 1200, "images": [[744, 2232]]}, {"duration": 100, "images": [[868, 2232]]}, {"duration": 100, "images": [[992, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[1116, 2232]]}, {"duration": 100, "images": [[1240, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[1364, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[1488, 2232]], "exitBranch": 83}, {"duration": 400, "images": [[1612, 2232]]}, {"duration": 100, "images": [[1736, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[1860, 2232]]}, {"duration": 100, "images": [[1984, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[2108, 2232]]}, {"duration": 100, "images": [[2232, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[2356, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[2480, 2232]], "exitBranch": 83}, {"duration": 600, "images": [[2604, 2232]]}, {"duration": 300, "images": [[2728, 2232]], "exitBranch": 83}, {"duration": 300, "images": [[2852, 2232]], "exitBranch": 83}, {"duration": 300, "images": [[2976, 2232]], "exitBranch": 60}, {"duration": 100, "images": [[3100, 2232]]}, {"duration": 100, "images": [[3224, 2232]], "exitBranch": 83}, {"duration": 100, "images": [[0, 2325]]}, {"duration": 100, "images": [[124, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[248, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[372, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[496, 2325]]}, {"duration": 100, "images": [[620, 2325]], "exitBranch": 83}, {"duration": 200, "images": [[744, 2325]]}, {"duration": 200, "images": [[868, 2325]], "exitBranch": 83}, {"duration": 200, "images": [[992, 2325]], "exitBranch": 83}, {"duration": 200, "images": [[1116, 2325]], "exitBranch": 83}, {"duration": 200, "images": [[1240, 2325]]}, {"duration": 200, "images": [[1364, 2325]], "exitBranch": 83}, {"duration": 200, "images": [[1488, 2325]], "exitBranch": 75, "branching": {"branches": [{"frameIndex": 69, "weight": 20}]}}, {"duration": 100, "images": [[1612, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[1736, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[1860, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[1984, 2325]]}, {"duration": 100, "images": [[2108, 2325]], "exitBranch": 83}, {"duration": 100, "images": [[2232, 2325]]}, {"duration": 100, "images": [[2356, 2325]]}, {"duration": 300, "images": [[2480, 2325]]}, {"duration": 100, "images": [[2604, 2325]]}, {"duration": 100, "images": [[2728, 2325]]}, {"duration": 100, "images": [[2852, 2325]]}, {"duration": 100, "images": [[2976, 2325]]}, {"duration": 100, "images": [[0, 0]]}]}, "LookDownRight": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[3100, 2325]], "exitBranch": 5}, {"duration": 100, "images": [[3224, 2325]], "exitBranch": 4}, {"duration": 1200, "images": [[0, 2418]]}, {"duration": 100, "images": [[124, 2418]]}, {"duration": 100, "images": [[248, 2418]]}, {"duration": 100, "images": [[0, 0]]}]}, "GetArtsy": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[372, 2418]]}, {"duration": 100, "images": [[496, 2418]]}, {"duration": 100, "images": [[620, 2418]]}, {"duration": 100, "images": [[744, 2418]]}, {"duration": 100, "images": [[868, 2418]]}, {"duration": 100, "images": [[992, 2418]]}, {"duration": 100, "images": [[1116, 2418]]}, {"duration": 100, "images": [[1240, 2418]]}, {"duration": 100, "images": [[1364, 2418]]}, {"duration": 100, "images": [[1488, 2418]]}, {"duration": 400, "images": [[1612, 2418]]}, {"duration": 100, "images": [[1736, 2418]]}, {"duration": 100, "images": [[1860, 2418]], "sound": "10"}, {"duration": 100, "images": [[1612, 2418]]}, {"duration": 100, "images": [[1736, 2418]]}, {"duration": 100, "images": [[1860, 2418]], "sound": "10"}, {"duration": 2400, "images": [[1612, 2418]]}, {"duration": 100, "images": [[744, 2418]]}, {"duration": 100, "images": [[620, 2418]]}, {"duration": 100, "images": [[496, 2418]]}, {"duration": 100, "images": [[372, 2418]], "exitBranch": 22}, {"duration": 100, "images": [[0, 0]]}]}, "Show": {"frames": [{"duration": 10}, {"duration": 10, "images": [[2728, 0]]}, {"duration": 10, "images": [[2604, 0]]}, {"duration": 10, "images": [[2480, 0]]}, {"duration": 10, "images": [[0, 0]]}]}, "LookDown": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[2852, 0]], "exitBranch": 5}, {"duration": 100, "images": [[2976, 0]], "exitBranch": 4}, {"duration": 1200, "images": [[3100, 0]]}, {"duration": 100, "images": [[3224, 0]]}, {"duration": 100, "images": [[0, 93]]}, {"duration": 100, "images": [[0, 0]]}]}, "Searching": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[992, 2511]]}, {"duration": 100, "images": [[1116, 2511]]}, {"duration": 100, "images": [[1240, 2511]]}, {"duration": 100, "images": [[1364, 2511]]}, {"duration": 100, "images": [[1488, 2511]], "sound": "11"}, {"duration": 100, "images": [[1612, 2511]]}, {"duration": 100, "images": [[1736, 2511]]}, {"duration": 100, "images": [[1860, 2511]]}, {"duration": 100, "images": [[1984, 2511]]}, {"duration": 100, "images": [[2108, 2511]]}, {"duration": 100, "images": [[2232, 2511]]}, {"duration": 100, "images": [[2356, 2511]]}, {"duration": 100, "images": [[2480, 2511]]}, {"duration": 100, "images": [[2604, 2511]]}, {"duration": 100, "images": [[2728, 2511]]}, {"duration": 100, "images": [[2852, 2511]]}, {"duration": 100, "images": [[2976, 2511]]}, {"duration": 100, "images": [[3100, 2511]]}, {"duration": 800, "images": [[3224, 2511]], "exitBranch": 55, "branching": {"branches": [{"frameIndex": 19, "weight": 40}]}}, {"duration": 100, "images": [[0, 2604]], "exitBranch": 55}, {"duration": 100, "images": [[3224, 2511]]}, {"duration": 100, "images": [[124, 2604]]}, {"duration": 100, "images": [[248, 2604]]}, {"duration": 100, "images": [[372, 2604]]}, {"duration": 100, "images": [[496, 2604]]}, {"duration": 100, "images": [[620, 2604]]}, {"duration": 1000, "images": [[744, 2604]], "exitBranch": 54, "branching": {"branches": [{"frameIndex": 27, "weight": 65}]}}, {"duration": 100, "images": [[868, 2604]]}, {"duration": 100, "images": [[992, 2604]]}, {"duration": 100, "images": [[1116, 2604]]}, {"duration": 100, "images": [[1240, 2604]]}, {"duration": 500, "images": [[1364, 2604]], "exitBranch": 33, "branching": {"branches": [{"frameIndex": 32, "weight": 75}]}}, {"duration": 100, "images": [[1488, 2604]], "exitBranch": 34, "branching": {"branches": [{"frameIndex": 32, "weight": 50}]}}, {"duration": 100, "images": [[1364, 2604]]}, {"duration": 100, "images": [[1612, 2604]]}, {"duration": 100, "images": [[1736, 2604]]}, {"duration": 100, "images": [[1860, 2604]]}, {"duration": 100, "images": [[1984, 2604]], "exitBranch": 55}, {"duration": 100, "images": [[2108, 2604]]}, {"duration": 100, "images": [[2232, 2604]], "exitBranch": 55, "branching": {"branches": [{"frameIndex": 19, "weight": 20}, {"frameIndex": 40, "weight": 80}]}}, {"duration": 100, "images": [[2356, 2604]]}, {"duration": 100, "images": [[2480, 2604]]}, {"duration": 100, "images": [[2604, 2604]]}, {"duration": 100, "images": [[2728, 2604]]}, {"duration": 100, "images": [[2852, 2604]]}, {"duration": 100, "images": [[2976, 2604]]}, {"duration": 100, "images": [[3100, 2604]]}, {"duration": 100, "images": [[3224, 2604]], "exitBranch": 55, "branching": {"branches": [{"frameIndex": 48, "weight": 75}]}}, {"duration": 100, "images": [[0, 2697]]}, {"duration": 100, "images": [[124, 2697]]}, {"duration": 100, "images": [[0, 2697]]}, {"duration": 100, "images": [[3224, 2604]]}, {"duration": 100, "images": [[248, 2697]], "exitBranch": 55, "branching": {"branches": [{"frameIndex": 49, "weight": 50}]}}, {"duration": 100, "images": [[372, 2697]], "branching": {"branches": [{"frameIndex": 28, "weight": 100}]}}, {"duration": 100, "images": [[496, 2697]]}, {"duration": 100, "images": [[620, 2697]]}, {"duration": 100, "images": [[744, 2697]]}, {"duration": 100, "images": [[868, 2697]]}, {"duration": 100, "images": [[992, 2697]]}, {"duration": 100, "images": [[0, 0]]}]}, "EmptyTrash": {"frames": [{"duration": 100, "images": [[0, 0]], "sound": "15"}, {"duration": 100, "images": [[1116, 2697]]}, {"duration": 100, "images": [[1240, 2697]], "sound": "14"}, {"duration": 100, "images": [[1364, 2697]]}, {"duration": 100, "images": [[1488, 2697]]}, {"duration": 100, "images": [[1612, 2697]]}, {"duration": 100, "images": [[1736, 2697]], "exitBranch": 16}, {"duration": 100, "images": [[1860, 2697]], "sound": "3"}, {"duration": 100, "images": [[1984, 2697]]}, {"duration": 100, "images": [[2108, 2697]]}, {"duration": 100, "images": [[2232, 2697]]}, {"duration": 100, "images": [[2356, 2697]]}, {"duration": 100, "images": [[2480, 2697]], "exitBranch": 16}, {"duration": 100, "images": [[2604, 2697]], "sound": "3"}, {"duration": 100, "images": [[2728, 2697]]}, {"duration": 100, "images": [[2852, 2697]]}, {"duration": 100, "images": [[2976, 2697]], "exitBranch": 23}, {"duration": 100, "images": [[3100, 2697]]}, {"duration": 100, "images": [[3224, 2697]]}, {"duration": 100, "images": [[0, 2790]], "sound": "3"}, {"duration": 100, "images": [[124, 2790]]}, {"duration": 100, "images": [[248, 2790]]}, {"duration": 100, "images": [[372, 2790]]}, {"duration": 100, "images": [[496, 2790]], "exitBranch": 29}, {"duration": 100, "images": [[620, 2790]], "sound": "3"}, {"duration": 100, "images": [[744, 2790]]}, {"duration": 100, "images": [[868, 2790]]}, {"duration": 100, "images": [[992, 2790]]}, {"duration": 100, "images": [[1116, 2790]]}, {"duration": 100, "images": [[1240, 2790]], "exitBranch": 31, "sound": "3"}, {"duration": 100, "images": [[1364, 2790]]}, {"duration": 100, "images": [[1488, 2790]]}, {"duration": 900}, {"duration": 100, "images": [[992, 1395]]}, {"duration": 100, "images": [[1116, 1395]]}, {"duration": 100, "images": [[1240, 1395]]}, {"duration": 100, "images": [[1364, 1395]]}, {"duration": 100, "images": [[1488, 1395]]}, {"duration": 100, "images": [[1612, 1395]]}, {"duration": 100, "images": [[1736, 1395]]}, {"duration": 100, "images": [[1860, 1395]]}, {"duration": 100, "images": [[0, 0]]}]}, "Greeting": {"frames": [{"duration": 100, "branching": {"branches": [{"frameIndex": 30, "weight": 40}]}, "sound": "15"}, {"duration": 100, "images": [[1612, 2790]]}, {"duration": 100, "images": [[1736, 2790]], "sound": "11"}, {"duration": 100, "images": [[1860, 2790]]}, {"duration": 100, "images": [[1984, 2790]]}, {"duration": 100, "images": [[2108, 2790]]}, {"duration": 100, "images": [[2232, 2790]]}, {"duration": 100, "images": [[2356, 2790]]}, {"duration": 100, "images": [[2480, 2790]]}, {"duration": 100, "images": [[2604, 2790]]}, {"duration": 100, "images": [[2728, 2790]]}, {"duration": 100, "images": [[2852, 2790]]}, {"duration": 100, "images": [[2976, 2790]]}, {"duration": 100, "images": [[3100, 2790]], "sound": "14"}, {"duration": 100, "images": [[3224, 2790]]}, {"duration": 100, "images": [[0, 2883]]}, {"duration": 100, "images": [[124, 2883]]}, {"duration": 100, "images": [[248, 2883]]}, {"duration": 300, "images": [[372, 2883]]}, {"duration": 100, "images": [[496, 2883]], "sound": "10"}, {"duration": 450, "images": [[372, 2883]]}, {"duration": 100, "images": [[620, 2883]]}, {"duration": 100, "images": [[744, 2883]]}, {"duration": 100, "images": [[868, 2883]], "sound": "12"}, {"duration": 100, "images": [[992, 2883]]}, {"duration": 100, "images": [[1116, 2883]]}, {"duration": 100, "images": [[1240, 2883]], "sound": "4"}, {"duration": 100, "images": [[1364, 2883]]}, {"duration": 100, "images": [[1488, 2883]]}, {"duration": 100, "images": [[1612, 2883]], "branching": {"branches": [{"frameIndex": 38, "weight": 100}]}}, {"duration": 100, "images": [[992, 1395]], "sound": "11"}, {"duration": 100, "images": [[1116, 1395]]}, {"duration": 100, "images": [[1240, 1395]]}, {"duration": 100, "images": [[1364, 1395]]}, {"duration": 100, "images": [[1488, 1395]]}, {"duration": 100, "images": [[1612, 1395]]}, {"duration": 100, "images": [[1736, 1395]]}, {"duration": 100, "images": [[1860, 1395]], "exitBranch": 38}, {"duration": 100, "images": [[0, 0]]}]}, "LookUp": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[1736, 2883]], "exitBranch": 5}, {"duration": 100, "images": [[1860, 2883]], "exitBranch": 4}, {"duration": 1200, "images": [[1984, 2883]]}, {"duration": 100, "images": [[2108, 2883]]}, {"duration": 100, "images": [[2232, 2883]]}, {"duration": 100, "images": [[0, 0]]}]}, "GestureDown": {"frames": [{"duration": 100, "images": [[0, 0]]}, {"duration": 100, "images": [[1984, 1395]]}, {"duration": 100, "images": [[2108, 1395]]}, {"duration": 100, "images": [[2232, 1395]]}, {"duration": 100, "images": [[2356, 1395]]}, {"duration": 100, "images": [[2480, 1395]], "exitBranch": 14}, {"duration": 100, "images": [[2604, 1395]]}, {"duration": 100, "images": [[2728, 1395]], "branching": {"branches": [{"frameIndex": 5, "weight": 50}]}}, {"duration": 100, "images": [[2852, 1395]]}, {"duration": 100, "images": [[2976, 1395]]}, {"duration": 100, "images": [[3100, 1395]], "exitBranch": 14}, {"duration": 100, "images": [[3224, 1395]]}, {"duration": 100, "images": [[0, 1488]]}, {"duration": 450, "images": [[124, 1488]]}, {"duration": 100, "images": [[2356, 1395]]}, {"duration": 100, "images": [[2232, 1395]]}, {"duration": 100, "images": [[2108, 1395]]}, {"duration": 100, "images": [[1984, 1395]]}, {"duration": 100, "images": [[0, 0]]}]}, "RestPose": {"frames": [{"duration": 100, "images": [[0, 0]]}]}, "IdleEyeBrowRaise": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[1116, 186]]}, {"duration": 100, "images": [[1240, 186]]}, {"duration": 900, "images": [[1364, 186]]}, {"duration": 100, "images": [[1240, 186]]}, {"duration": 100, "images": [[1116, 186]]}, {"duration": 100, "images": [[0, 0]]}]}, "LookDownLeft": {"frames": [{"duration": 100, "images": [[0, 0]], "exitBranch": 6}, {"duration": 100, "images": [[744, 3069]], "exitBranch": 5}, {"duration": 100, "images": [[868, 3069]], "exitBranch": 4}, {"duration": 1200, "images": [[992, 3069]]}, {"duration": 100, "images": [[1116, 3069]]}, {"duration": 100, "images": [[1240, 3069]]}, {"duration": 100, "images": [[0, 0]]}]}}};

@@ -1,718 +1,2272 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>PixelCat</title>
-<link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <div class="header header-space-between">
-    <span>PixelCat</span>
-    <div class="header-actions">
-      <span class="version">v2.5.6</span>
-      <button class="info-button" id="infoToggle" type="button" title="Info" aria-label="Open info">
-        <!-- info icon (default) -->
-        <svg id="infoIconInfo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8" stroke-width="3" stroke-linecap="round"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
-        <!-- return/back arrow (when info open) -->
-        <svg id="infoIconReturn" viewBox="0 0 24 24" aria-hidden="true" style="display:none;"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-    </div>
-  </div>
-  
-  <div class="content">
-
-    <!-- Level / XP Bar -->
-    <div class="xp-block">
-      <div class="xp-header">
-        <span class="xp-label">
-          <svg class="xp-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 3 4.5 6v6.2c0 4.4 3.1 7.5 7.5 8.8 4.4-1.3 7.5-4.4 7.5-8.8V6L12 3z"/>
-            <path d="m8.5 13.2 3.5-3.5 3.5 3.5"/>
-            <path d="M12 10v6"/>
+  <head>
+    <meta charset="utf-8" />
+    <title>PixelCat</title>
+    <script src="../src/ui-scale.js"></script>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="header header-space-between">
+      <span>PixelCat</span>
+      <div class="header-actions">
+        <span class="version">v2.7.0</span
+        ><a
+          class="donate-button"
+          id="donateButton"
+          href="https://ko-fi.com/pixelcats"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Support PixelCat"
+          aria-label="Support PixelCat"
+          data-i18n-title="supportPixelCat"
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+            <line x1="6" y1="1" x2="6" y2="4"></line>
+            <line x1="10" y1="1" x2="10" y2="4"></line>
+            <line x1="14" y1="1" x2="14" y2="4"></line></svg
+          ><span data-i18n="donateBtnText">Donate</span></a
+        ><a
+          class="report-button"
+          id="reportButton"
+          href="https://github.com/KINGS-MZ/PixelCat/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Report an issue on GitHub"
+          aria-label="Report an issue on GitHub"
+          data-i18n-title="reportGitHub"
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+            ></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line></svg></a
+        ><button
+          class="info-button"
+          id="infoToggle"
+          type="button"
+          title="Info"
+          aria-label="Open info"
+        >
+          <svg id="infoIconInfo" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <line
+              x1="12"
+              y1="8"
+              x2="12"
+              y2="8"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
+            <line x1="12" y1="12" x2="12" y2="16" /></svg
+          ><svg
+            id="infoIconReturn"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            style="display: none"
+          >
+            <polyline points="15 18 9 12 15 6" /></svg
+          ><svg
+            id="infoIconClose"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            style="display: none"
+          >
+            <line
+              x1="18"
+              y1="6"
+              x2="6"
+              y2="18"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+            <line
+              x1="6"
+              y1="6"
+              x2="18"
+              y2="18"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
           </svg>
-          <span id="levelValue">Level 1</span>
-        </span>
-        <span class="xp-value" id="xpValue">0 / 10 XP</span>
+        </button>
       </div>
-      <div class="xp-bar-bg">
-        <div class="xp-bar-fill" id="xpBarFill"></div>
+    </div>
+    <div id="onboardingScreen" class="content" style="display: none">
+      <div
+        class="onboarding-greeting-block"
+        style="text-align: center; gap: 5px"
+      >
+        <div
+          id="onboardUpdateBadge"
+          class="onboard-update-badge"
+          style="display: none"
+        >
+          ⚡ <span data-i18n="newIn">New in</span> v2.7.0
+        </div>
+        <div
+          style="font-size: 34px; line-height: 1; margin-bottom: 2px"
+          id="onboardCatEmoji"
+        >
+          🐱
+        </div>
+        <div
+          style="
+            font-size: 12px;
+            font-weight: 700;
+            color: #f4f4f5;
+            letter-spacing: 0.2px;
+          "
+          id="onboardTitle"
+          data-i18n="onboardMeetTitle"
+        >
+          Meet your companion!
+        </div>
+        <div
+          style="font-size: 10px; color: #71717a; line-height: 1.5"
+          id="onboardSub"
+          data-i18n="onboardPick"
+        >
+          Pick a name and identity.
+        </div>
       </div>
-      <div class="xp-hint" id="xpHint" data-i18n="xpHint">Feed fish or play ball to earn XP</div>
-      <div class="coin-row">
-        <span class="coin-label">
-          <svg class="coin-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="8"/>
-            <path d="M12 7v10"/>
-            <path d="M15.5 9.2c-.7-.7-1.8-1.2-3.1-1.2-1.6 0-2.8.7-2.8 1.9 0 1.1 1 1.5 2.8 1.9 1.8.4 2.8.8 2.8 2 0 1.2-1.2 2-2.9 2-1.4 0-2.6-.5-3.4-1.4"/>
+      <div class="control-row full-width-row" style="gap: 6px">
+        <div class="control-label">
+          <span class="control-title" data-i18n="petNameField">Pet Name</span>
+        </div>
+        <input
+          type="text"
+          id="petNameInput"
+          class="onboarding-name-input"
+          placeholder="e.g. Luna, Max, Pixel…"
+          data-i18n-placeholder="petNamePlaceholder"
+          maxlength="18"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-title" data-i18n="identityField">Identity</span>
+        </div>
+        <div class="button-group">
+          <button
+            type="button"
+            class="group-btn"
+            id="sexMaleBtn"
+            data-sex="male"
+          >
+            ♂ <span data-i18n="male">Male</span></button
+          ><button
+            type="button"
+            class="group-btn"
+            id="sexFemaleBtn"
+            data-sex="female"
+          >
+            ♀ <span data-i18n="female">Female</span>
+          </button>
+        </div>
+      </div>
+      <button
+        type="button"
+        id="onboardingConfirmBtn"
+        class="onboarding-confirm-btn"
+        disabled
+      >
+        <span data-i18n="onboardCta">Let's go! 🐾</span>
+      </button>
+      <div id="onboardSafeNote" class="onboard-safe-note" style="display: none">
+        <span data-i18n="onboardSafeNote">🛡️ Your progress is safe.</span>
+      </div>
+      <input
+        type="file"
+        id="onboardImportInput"
+        accept=".json"
+        style="display: none"
+      />
+      <div
+        id="onboardImportRow"
+        style="display: none; width: 100%; text-align: center"
+      >
+        <button type="button" id="onboardImportBtn" class="onboard-import-link">
+          <span data-i18n="onboardImportInstead"
+            >Import from backup instead</span
+          >
+        </button>
+        <div
+          class="io-status"
+          id="onboardIoStatusMsg"
+          style="margin-top: 4px"
+        ></div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="xp-block">
+        <div class="xp-header">
+          <span class="xp-label"
+            ><svg class="xp-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 3 4.5 6v6.2c0 4.4 3.1 7.5 7.5 8.8 4.4-1.3 7.5-4.4 7.5-8.8V6L12 3z"
+              />
+              <path d="m8.5 13.2 3.5-3.5 3.5 3.5" />
+              <path d="M12 10v6" /></svg
+            ><span id="levelValue">Level 1</span></span
+          ><span class="xp-value" id="xpValue">0 / 10 XP</span>
+        </div>
+        <div class="xp-bar-bg">
+          <div class="xp-bar-fill" id="xpBarFill"></div>
+        </div>
+        <div class="xp-hint" id="xpHint" data-i18n="xpHint">
+          Feed fish or play ball to earn XP
+        </div>
+        <div class="coin-row">
+          <span class="coin-label"
+            ><svg class="coin-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+              <path d="M12 18V6" />
+            </svg
+            ><span data-i18n="coins">Coins</span></span
+          ><span class="coin-count" id="coinCount">0</span>
+        </div>
+      </div>
+      <div class="home-bonus-banner" id="homeBonusBanner" style="display: none">
+        <span class="home-bonus-icon" id="homeBonusIcon"
+          ><svg
+            class="coin-icon bonus-coin-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+            <path d="M12 18V6" />
+          </svg
+        ></span>
+        <div class="home-bonus-text">
+          <span
+            class="home-bonus-title"
+            id="homeBonusTitle"
+            data-i18n="dailyBonusReady"
+            >Daily Bonus Ready!</span
+          ><span class="home-bonus-sub" id="homeBonusSub" data-i18n="tapToClaim"
+            >Tap to claim your coins</span
+          >
+        </div>
+        <button class="home-bonus-btn" id="homeBonusBtn" data-i18n="claim">
+          Claim
+        </button>
+      </div>
+      <div
+        class="home-bonus-banner review-banner"
+        id="reviewBanner"
+        style="display: none"
+      >
+        <span class="home-bonus-icon"
+          ><svg
+            viewBox="0 0 24 24"
+            class="bonus-star-icon"
+            aria-hidden="true"
+          >
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+            ></polygon></svg
+        ></span>
+        <div class="home-bonus-text">
+          <span class="home-bonus-title" data-i18n="reviewTitle"
+            >Give us a review!</span
+          ><span class="home-bonus-sub" data-i18n="reviewBonus"
+            >Claim +50 bonus coins</span
+          >
+        </div>
+        <button
+          class="home-bonus-btn"
+          id="reviewClaimBtn"
+          type="button"
+          data-i18n="claim"
+        >
+          Claim
+        </button>
+      </div>
+      <div class="control-row main-toggle-row">
+        <div class="status">
+          <div class="status-dot" id="dot"></div>
+          <span id="status-text" data-i18n="disabled">Disabled</span>
+        </div>
+        <label class="switch"
+          ><input type="checkbox" id="toggle" /><span class="slider"></span
+        ></label>
+      </div>
+      <div class="tab-row" role="tablist" aria-label="Settings sections">
+        <button
+          class="tab-button active"
+          data-tab="essential"
+          type="button"
+          title="Essential"
+          aria-label="Essential"
+        >
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 10.5L12 3l9 7.5" />
+            <path d="M5.25 9.75V20a1 1 0 0 0 1 1h11.5a1 1 0 0 0 1-1V9.75" />
+            <path d="M9.75 21v-5.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1V21" />
+          </svg></button
+        ><button
+          class="tab-button"
+          data-tab="quests"
+          type="button"
+          title="Quests"
+          aria-label="Quests"
+        >
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="6" y="4" width="12" height="16" rx="2" />
+            <path d="M9 8h6" />
+            <path d="M9 12h6" />
+            <path d="M9 16h4" />
+            <path d="M9 4.5h6" />
+          </svg></button
+        ><button
+          class="tab-button"
+          data-tab="shop"
+          type="button"
+          title="Shop"
+          aria-label="Shop"
+        >
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
+          </svg></button
+        ><button
+          class="tab-button"
+          data-tab="behavior"
+          type="button"
+          title="Behavior"
+          aria-label="Behavior"
+        >
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v3" />
+            <path d="M5.64 5.64l2.12 2.12" />
+            <path d="M3 12h3" />
+            <path d="M5.64 18.36l2.12-2.12" />
+            <path d="M12 21v-3" />
+            <path d="M18.36 18.36l-2.12-2.12" />
+            <path d="M21 12h-3" />
+            <path d="M18.36 5.64l-2.12 2.12" />
+            <circle cx="12" cy="12" r="3.5" />
+          </svg></button
+        ><button
+          class="tab-button"
+          data-tab="advanced"
+          type="button"
+          title="Settings"
+          aria-label="Settings"
+        >
+          <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.2" />
+            <path
+              d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.9 1.9 0 1 1-2.7 2.7l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.9 1.9 0 1 1-2.7-2.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.9 1.9 0 1 1 2.7-2.7l.1.1a1 1 0 0 0 1.1.2H9a1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.9 1.9 0 1 1 2.7 2.7l-.1.1a1 1 0 0 0-.2 1.1V9c0 .4.2.8.6.9H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.9.6z"
+            />
           </svg>
-          <span data-i18n="coins">Coins</span>
-        </span>
-        <span class="coin-count" id="coinCount">0</span>
+        </button>
       </div>
-    </div>
-
-    <!-- Daily Bonus Banner (home tab) -->
-    <div class="home-bonus-banner" id="homeBonusBanner" style="display:none;">
-      <span class="home-bonus-icon" id="homeBonusIcon">
-        <svg class="coin-icon bonus-coin-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="8"/>
-          <path d="M12 7v10"/>
-          <path d="M15.5 9.2c-.7-.7-1.8-1.2-3.1-1.2-1.6 0-2.8.7-2.8 1.9 0 1.1 1 1.5 2.8 1.9 1.8.4 2.8.8 2.8 2 0 1.2-1.2 2-2.9 2-1.4 0-2.6-.5-3.4-1.4"/>
-        </svg>
-      </span>
-      <div class="home-bonus-text">
-        <span class="home-bonus-title" id="homeBonusTitle" data-i18n="dailyBonusReady">Daily Bonus Ready!</span>
-        <span class="home-bonus-sub" id="homeBonusSub" data-i18n="tapToClaim">Tap to claim your coins</span>
-      </div>
-      <button class="home-bonus-btn" id="homeBonusBtn" data-i18n="claim">Claim</button>
-    </div>
-
-    <!-- Main Active Toggle -->
-    <div class="control-row main-toggle-row">
-      <div class="status">
-        <div class="status-dot" id="dot"></div>
-        <span id="status-text">Disabled</span>
-      </div>
-      <label class="switch">
-        <input type="checkbox" id="toggle">
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="tab-row" role="tablist" aria-label="Settings sections">
-      <button class="tab-button active" data-tab="essential" type="button" title="Essential" aria-label="Essential">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 10.5L12 3l9 7.5"/>
-          <path d="M5.25 9.75V20a1 1 0 0 0 1 1h11.5a1 1 0 0 0 1-1V9.75"/>
-          <path d="M9.75 21v-5.5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1V21"/>
-        </svg>
-      </button>
-      <button class="tab-button" data-tab="quests" type="button" title="Quests" aria-label="Quests">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="6" y="4" width="12" height="16" rx="2"/>
-          <path d="M9 8h6"/>
-          <path d="M9 12h6"/>
-          <path d="M9 16h4"/>
-          <path d="M9 4.5h6"/>
-        </svg>
-      </button>
-      <button class="tab-button" data-tab="shop" type="button" title="Shop" aria-label="Shop">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <path d="M16 10a4 4 0 0 1-8 0"/>
-        </svg>
-      </button>
-      <button class="tab-button" data-tab="behavior" type="button" title="Behavior" aria-label="Behavior">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3v3"/>
-          <path d="M5.64 5.64l2.12 2.12"/>
-          <path d="M3 12h3"/>
-          <path d="M5.64 18.36l2.12-2.12"/>
-          <path d="M12 21v-3"/>
-          <path d="M18.36 18.36l-2.12-2.12"/>
-          <path d="M21 12h-3"/>
-          <path d="M18.36 5.64l-2.12 2.12"/>
-          <circle cx="12" cy="12" r="3.5"/>
-        </svg>
-      </button>
-      <button class="tab-button" data-tab="advanced" type="button" title="Settings" aria-label="Settings">
-        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="3.2"/>
-          <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.9 1.9 0 1 1-2.7 2.7l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.9 1.9 0 1 1-2.7-2.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.9 1.9 0 1 1 2.7-2.7l.1.1a1 1 0 0 0 1.1.2H9a1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.9 1.9 0 1 1 2.7 2.7l-.1.1a1 1 0 0 0-.2 1.1V9c0 .4.2.8.6.9H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.9.6z"/>
-        </svg>
-      </button>
-    </div>
-
-    <section class="settings-panel active" data-panel="essential">
-
-      <!-- Companion Cat: locked until Level 4 -->
-      <div class="locked-card" id="companionRow">
-        <div class="locked-card-banner" id="companionLock">
-          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span class="lock-text" data-i18n="level4needed">Level 4 needed</span>
+      <section class="settings-panel active" data-panel="essential">
+        <div class="control-row">
+          <div class="control-label">
+            <span class="control-title" data-i18n="catSkin">Pet Skin</span>
+          </div>
+          <div class="color-swatches" id="skinSelect"></div>
         </div>
         <div class="control-row">
           <div class="control-label">
-            <span class="control-title" data-i18n="companion">Companion</span>
+            <span class="control-title" data-i18n="loyalMode">Loyal Mode</span>
           </div>
-          <label class="switch" id="companionSwitchWrap">
-            <input type="checkbox" id="companionToggle">
-            <span class="slider"></span>
-          </label>
+          <label class="switch"
+            ><input type="checkbox" id="loyalToggle" /><span
+              class="slider"
+            ></span
+          ></label>
         </div>
-      </div>
-
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="loyalMode">Loyal Mode</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="loyalToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="catSkin">Pet Skin</span>
-        </div>
-        <div class="color-swatches" id="skinSelect">
-          <div class="color-box val-white" data-skin="white" title="White"></div>
-          <div class="color-box val-orange" data-skin="orange" title="Orange"></div>
-          <div class="color-box val-rainbow" data-skin="rainbow" title="Rainbow"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="settings-panel" data-panel="quests">
-      <div class="sub-tab-row">
-        <button class="sub-tab-btn active" data-subtab="daily" type="button" data-i18n="quests">Quests</button>
-        <button class="sub-tab-btn" data-subtab="achievements" type="button" data-i18n="achievements">Achievements</button>
-      </div>
-
-      <div id="dailyQuestsView" style="display: flex; flex-direction: column; gap: 8px;">
-        <div class="quest-overview">
-          <div class="quest-overview-row">
-            <span class="quest-overview-label">
-              <svg class="quest-overview-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-              <span data-i18n="dailyQuests">Daily Quests</span>
-            </span>
-            <div class="quest-overview-badge" id="questCompletedValue">0 / 3</div>
+        <div class="locked-card" id="companionRow">
+          <div class="locked-card-banner" id="companionLock">
+            <svg
+              class="lock-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+            ><span class="lock-text" data-i18n="level4needed"
+              >Reach Level 5</span
+            >
           </div>
-          <div class="quest-overview-footer">
-            <span id="questResetText">5h 12m remaining</span>
-            <span id="questPerfectDaysValue">Streak: 0</span>
-          </div>
-        </div>
-        <div class="quest-list" id="questList"></div>
-      </div>
-
-      <div id="achievementsView" style="display: none;" class="achievement-grid">
-        <div class="achievement-item locked" id="achievementFirstFriend">
-          <img src="../assets/badges/First-Friend.png" class="achievement-badge" loading="lazy" decoding="async" alt="First Friend">
-          <span class="achievement-name">FIRST FRIEND</span>
-        </div>
-        <div class="achievement-item locked" id="achievementSpiderHunter">
-          <img src="../assets/badges/Spider-Hunter.png" class="achievement-badge" loading="lazy" decoding="async" alt="Spider Hunter">
-          <span class="achievement-name">SPIDER HUNTER</span>
-        </div>
-        <div class="achievement-item locked" id="achievement100Pets">
-          <img src="../assets/badges/100-Pets.png" class="achievement-badge" loading="lazy" decoding="async" alt="100 Pets">
-          <span class="achievement-name">100 PETS</span>
-        </div>
-        <div class="achievement-item locked" id="achievement7DayStreak">
-          <img src="../assets/badges/7-Day-Streak.png" class="achievement-badge" loading="lazy" decoding="async" alt="7 Day Streak">
-          <span class="achievement-name">7 DAY STREAK</span>
-        </div>
-        <div class="achievement-item locked" id="achievementMasterMischief">
-          <img src="../assets/badges/Master-of-Mischief.png" class="achievement-badge" loading="lazy" decoding="async" alt="Master of Mischief">
-          <span class="achievement-name">MASTER OF MISCHIEF</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="settings-panel" data-panel="behavior">
-      <div class="control-row full-width-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="energyLevel">Energy Level</span>
-          <span class="control-desc" data-i18n="affectsSpeed">Affects movement speed</span>
-        </div>
-        <div class="button-group" id="energyGroup">
-          <button class="group-btn" data-energy="sleepy" data-i18n="sleepy">Sleepy</button>
-          <button class="group-btn" data-energy="active" data-i18n="active">Active</button>
-          <!-- Hyper locked until Level 6 -->
-          <button class="group-btn" data-energy="hyper" id="hyperBtn">Hyper <span class="btn-lock" id="hyperLock"><svg class="lock-icon inline-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span></button>
-        </div>
-      </div>
-
-      <!-- Auto Spawn: Ball and Spider unlock by level, Portal requires Level 6 -->
-      <div class="control-row full-width-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="autoSpawn">Auto Spawn</span>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-          <div class="button-group">
-            <button class="group-btn" id="fishSpawnBtn">Fish</button>
-            <button class="group-btn" id="ballSpawnBtn">Ball <span class="btn-lock" id="ballLock"><svg class="lock-icon inline-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span></button>
-          </div>
-          <div class="button-group">
-            <button class="group-btn" id="spiderSpawnBtn">Spider <span class="btn-lock" id="spiderLock"><svg class="lock-icon inline-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span></button>
-            <button class="group-btn" id="portalSpawnBtn">Portal <span class="btn-lock" id="portalLock"><svg class="lock-icon inline-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span></button>
-          </div>
-        </div>
-      </div>
-
-      <div class="control-row">
-          <div class="control-label">
-            <span class="control-title" data-i18n="aggressiveMode">Aggressive Mode</span>
-          </div>
-        <label class="switch">
-          <input type="checkbox" id="aggroToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-    </section>
-
-    <section class="settings-panel" data-panel="advanced">
-      <div class="sub-tab-row">
-        <button class="sub-tab-btn active" data-settingstab="basic" type="button" data-i18n="basic">Basic</button>
-        <button class="sub-tab-btn" data-settingstab="advanced" type="button" data-i18n="advanced">Advanced</button>
-        <button class="sub-tab-btn" data-settingstab="danger" type="button" data-i18n="danger">Danger</button>
-      </div>
-
-      <div id="settingsBasicView" class="settings-subview">
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="speed">Speed</span>
-        </div>
-        <div class="stepper-controls">
-          <button class="stepper-btn" id="speedMinus">-</button>
-          <span class="val-badge" id="speedVal">1.0x</span>
-          <button class="stepper-btn" id="speedPlus">+</button>
-        </div>
-      </div>
-
-      <div class="locked-card" id="speechRow">
-        <div class="locked-card-banner" id="speechLock">
-          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span class="lock-text" data-i18n="requiresLevel2">Requires Level 2</span>
-        </div>
-        <div class="control-row">
-          <div class="control-label">
-            <span class="control-title" data-i18n="speechBubbles">Speech Bubbles</span>
-          </div>
-          <label class="switch" id="speechSwitchWrap">
-            <input type="checkbox" id="speechToggle">
-            <span class="slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="smartMemory">Smart Memory</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="memoryToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="hideFullscreen">Hide in Fullscreen</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="hideInFullscreenToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <!-- Language Selector -->
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="language">Language</span>
-        </div>
-        <select id="languageSelect" class="lang-select">
-          <option value="en">English</option>
-          <option value="fr">Français</option>
-          <option value="it">Italiano</option>
-          <option value="ar">العربية</option>
-        </select>
-      </div>
-      </div>
-
-      <div id="settingsAdvancedView" class="settings-subview" style="display: none;">
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="lowPowerMode">Low Power Mode</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="lowPowerToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-
-
-      <!-- UI Mischief: locked until Level 5 -->
-      <div class="locked-card" id="mischiefRow">
-        <div class="locked-card-banner" id="mischiefLock">
-          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span class="lock-text" data-i18n="level5needed">Level 5 needed</span>
-        </div>
-        <div class="control-row">
-          <div class="control-label">
-            <span class="control-title" data-i18n="pageMischief">Page Mischief</span>
-          </div>
-          <label class="switch" id="mischiefSwitchWrap">
-            <input type="checkbox" id="uiMischiefToggle">
-            <span class="slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="control-row">
-        <div class="control-label">
-          <span class="control-title" data-i18n="rareEvents">Rare Events</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="rareEventsToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <!-- Mischief Rate: locked until Level 5 -->
-      <div class="locked-card" id="mischiefRateRow">
-        <div class="locked-card-banner" id="mischiefRateLock">
-          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span class="lock-text" data-i18n="requiresLevel5">Requires Level 5</span>
-        </div>
-        <div class="control-row">
-          <div class="control-label">
-            <span class="control-title" data-i18n="mischiefRate">Mischief Rate</span>
-          </div>
-          <div class="stepper-controls" id="mischiefRateControls">
-            <button class="stepper-btn" id="mischiefMinus">-</button>
-            <span class="val-badge" id="mischiefRateVal">11%</span>
-            <button class="stepper-btn" id="mischiefPlus">+</button>
-          </div>
-        </div>
-      </div>
-
-      </div>
-
-      <div id="settingsDangerView" class="settings-subview" style="display: none;">
-      <div class="warning-card locked-card" id="sizeRow">
-        <div class="locked-card-banner" id="sizeLock">
-          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span class="lock-text">Requires Level 4</span>
-        </div>
-        <div class="control-row">
-          <div class="control-label">
-            <span class="control-title" data-i18n="size">Size</span>
-          </div>
-          <div class="stepper-controls" id="sizeControls">
-            <button class="stepper-btn" id="sizeMinus">-</button>
-            <span class="val-badge" id="sizeVal">1.0x</span>
-            <button class="stepper-btn" id="sizePlus">+</button>
-          </div>
-        </div>
-        <div class="size-warning-banner">
-          <svg class="warning-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/>
-            <path d="M12 9v4"/>
-            <path d="M12 17h.01"/>
-          </svg>
-          <span class="lock-text" data-i18n="sizeWarning">This might cause unexpected behavior</span>
-        </div>
-      </div>
-
-      <div class="reset-container">
-        <div class="danger-action-row">
-        <div class="control-row danger-card" id="clearMemoryCard">
-          <div class="control-label">
-            <span class="control-title danger-text" data-i18n="clearMemory">Clear Memory</span>
-          </div>
-          <svg class="tab-icon danger-text" id="clearMemoryIcon" viewBox="0 0 24 24" style="width: 16px; height: 16px; opacity: 0.7;"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 14h10l1-14"/><path d="M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-
-        <div class="reset-confirm-wrap" id="clearMemoryActions" style="display: none;">
-          <div class="confirm-box confirm" id="confirmClearMemory" title="Confirm Clear Memory">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          </div>
-          <div class="confirm-box cancel" id="cancelClearMemory" title="Cancel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </div>
-        </div>
-        </div>
-
-        <div class="danger-action-row">
-        <div class="control-row danger-card" id="resetCard">
-          <div class="control-label">
-            <span class="control-title danger-text" data-i18n="resetProgress">Reset Progress</span>
-          </div>
-          <svg class="tab-icon danger-text" id="resetIcon" viewBox="0 0 24 24" style="width: 16px; height: 16px; opacity: 0.7;"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        
-        <div class="reset-confirm-wrap" id="resetActions" style="display: none;">
-          <div class="confirm-box confirm" id="confirmReset" title="Confirm Reset">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          </div>
-          <div class="confirm-box cancel" id="cancelReset" title="Cancel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </div>
-        </div>
-        </div>
-      </div>
-      </div>
-    </section>
-
-    <!-- SHOP PANEL -->
-    <section class="settings-panel" data-panel="shop">
-
-      <!-- Sub-tabs: Balls / Boosts -->
-      <div class="sub-tab-row">
-        <button class="sub-tab-btn active" data-shoptab="balls" type="button" data-i18n="balls">Balls</button>
-        <button class="sub-tab-btn" data-shoptab="pets" type="button" data-i18n="pets">Pets</button>
-        <button class="sub-tab-btn" data-shoptab="boosts" type="button" data-i18n="boosts">Boosts</button>
-      </div>
-
-      <!-- Balls grid -->
-      <div id="shopBallsView" class="shop-grid">
-        <!-- injected by popup.js -->
-      </div>
-
-      <!-- Pets grid -->
-      <div id="shopPetsView" class="shop-grid" style="display:none;">
-        <!-- injected by popup.js -->
-      </div>
-
-      <!-- Boosts grid -->
-      <div id="shopBoostsView" class="shop-grid" style="display:none;">
-        <!-- injected by popup.js -->
-      </div>
-    </section>
-
-    <section class="settings-panel" data-panel="info">
-      <div class="sub-tab-row">
-        <button class="sub-tab-btn active" data-infotab="about" type="button">About</button>
-        <button class="sub-tab-btn" data-infotab="stats" type="button">Stats</button>
-      </div>
-
-      <div id="aboutInfoView" class="info-view">
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">What is PixelCat?</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">A pixel pet for YouTube. It roams, plays, and grows as you watch videos.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">How levels work</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Earn XP by petting, feeding, and playing. Level up to unlock new features.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">Earning coins</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Coins drop during play. Click them to collect! Get daily bonuses by opening the popup.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">Daily quests</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Complete 3 tasks every day to earn rewards and keep your streak going.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">Achievements</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Earn badges for special milestones, like your first pet or catching many spiders.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">Spawning items</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Use Auto Spawn to drop fish, balls, or spiders for your cat to play with.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">Shop &amp; boosts</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Use coins to buy new ball skins and permanent boosts that help you earn more.</span>
-        </button>
-        <button class="about-card" type="button" aria-expanded="false">
-          <span class="about-card-title">Tips &amp; tricks</span>
-          <span class="about-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-          <span class="about-card-body">Pet your cat after it eats for a bonus. Use Loyal Mode to make it follow your mouse.</span>
-        </button>
-
-
-
-        <a href="https://ko-fi.com/pixelcats" target="_blank" rel="noopener noreferrer" class="coffee-card">
-          <div class="coffee-card-main">
-            <div class="coffee-icon-wrapper">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+          <div class="control-row" style="padding-bottom: 4px">
+            <div class="control-label">
+              <span class="control-title" data-i18n="companion">Companion</span>
             </div>
-            <div class="coffee-info">
-              <span class="coffee-title">Support PixelCat</span>
-              <span class="coffee-desc">Support PixelCat on Ko-fi</span>
-            </div>
+            <label class="switch" id="companionSwitchWrap"
+              ><input type="checkbox" id="companionToggle" /><span
+                class="slider"
+              ></span
+            ></label>
           </div>
-          <div class="coffee-arrow">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-          </div>
-        </a>
-      </div>
-
-
-      <div id="statsInfoView" class="info-view" style="display:none;">
-        <div id="statsCardsContainer" class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-label">🐟 Fish Eaten</span>
-            <span class="stat-value" id="statFish">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">🕷️ Spiders Caught</span>
-            <span class="stat-value" id="statSpiders">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">✨ Pet Sessions</span>
-            <span class="stat-value" id="statPets">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">
-              <svg class="coin-icon stat-coin-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="8"/>
-                <path d="M12 7v10"/>
-                <path d="M15.5 9.2c-.7-.7-1.8-1.2-3.1-1.2-1.6 0-2.8.7-2.8 1.9 0 1.1 1 1.5 2.8 1.9 1.8.4 2.8.8 2.8 2 0 1.2-1.2 2-2.9 2-1.4 0-2.6-.5-3.4-1.4"/>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              padding: 4px 12px 10px 12px;
+              width: 100%;
+            "
+          >
+            <button
+              type="button"
+              id="companionPrevBtn"
+              class="stepper-btn"
+              style="
+                background: #18181b;
+                border: 1px solid #3f3f46;
+                color: #f4f4f5;
+                cursor: pointer;
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                user-select: none;
+                transition:
+                  background 0.15s,
+                  border-color 0.15s;
+              "
+              title="Previous Companion"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6"></polyline>
               </svg>
-              Coins Collected
-            </span>
-            <span class="stat-value" id="statCoinsCollected">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">🎾 Ball Catches</span>
-            <span class="stat-value" id="statBalls">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">📜 Quests Done</span>
-            <span class="stat-value" id="statQuests">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">🏆 Perfect Days</span>
-            <span class="stat-value" id="statPerfectDays">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">🔥 Daily Streak</span>
-            <span class="stat-value" id="statDailyStreak">0</span>
+            </button>
+            <div
+              style="
+                flex: 1;
+                background: #18181b;
+                border: 1px solid #3f3f46;
+                border-radius: 6px;
+                padding: 5px 8px;
+                text-align: center;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 28px;
+              "
+            >
+              <span
+                id="companionPetLabel"
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #f4f4f5;
+                  user-select: none;
+                "
+              >
+                Same as Main
+              </span>
+            </div>
+            <button
+              type="button"
+              id="companionNextBtn"
+              class="stepper-btn"
+              style="
+                background: #18181b;
+                border: 1px solid #3f3f46;
+                color: #f4f4f5;
+                cursor: pointer;
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                user-select: none;
+                transition:
+                  background 0.15s,
+                  border-color 0.15s;
+              "
+              title="Next Companion"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
           </div>
         </div>
-
-        <div id="treatsTreeContainer" class="treats-tree-container" style="display:none;">
-          <div class="tree-header">
-            <span>Skills Tree</span>
-            <span class="tree-header-sub">Drag the tree to explore</span>
+      </section>
+      <section class="settings-panel" data-panel="quests">
+        <div class="sub-tab-row">
+          <button
+            class="sub-tab-btn active"
+            data-subtab="daily"
+            type="button"
+            data-i18n="quests"
+          >
+            Quests</button
+          ><button
+            class="sub-tab-btn"
+            data-subtab="achievements"
+            type="button"
+            data-i18n="achievements"
+          >
+            Achievements
+          </button>
+        </div>
+        <div
+          id="dailyQuestsView"
+          style="display: flex; flex-direction: column; gap: 8px"
+        >
+          <div class="quest-overview">
+            <div class="quest-overview-row">
+              <span class="quest-overview-label"
+                ><svg
+                  class="quest-overview-icon"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                  /></svg
+                ><span data-i18n="dailyQuests">Daily Quests</span></span
+              >
+              <div class="quest-overview-badge" id="questCompletedValue">
+                0 / 3
+              </div>
+            </div>
+            <div class="quest-overview-footer">
+              <span id="questResetText">5h 12m remaining</span
+              ><span id="questPerfectDaysValue">Streak: 0</span>
+            </div>
           </div>
-          <div class="skill-tree-shell">
-            <div class="skill-tree-viewport">
-              <div class="skill-tree-map" id="skillTreeMap">
-                <div class="tree-nodes">
-                  <!-- TIER 1 -->
-                  <div class="tree-item unlocked" id="treeNodeBase">
-                    <div class="tree-node">
-                      <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 10l6-6 6 6M4 16h16"/></svg>
-                    </div>
-                    <div class="tree-info"><span class="tree-title">Basic Instincts</span><span class="tree-meta">Core</span></div>
+          <div class="quest-list" id="questList"></div>
+        </div>
+        <div
+          id="achievementsView"
+          style="display: none"
+          class="achievement-pager"
+        >
+          <div class="achievement-page" data-ach-page="0">
+            <div class="achievement-grid">
+              <div class="achievement-item locked" id="achievementFirstFriend">
+                <img
+                  src="../assets/badges/First-Friend.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="First Friend"
+                /><span class="achievement-name">FIRST FRIEND</span>
+              </div>
+              <div class="achievement-item locked" id="achievementSpiderHunter">
+                <img
+                  src="../assets/badges/Spider-Hunter.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Spider Hunter"
+                /><span class="achievement-name">SPIDER HUNTER</span>
+              </div>
+              <div class="achievement-item locked" id="achievement100Pets">
+                <img
+                  src="../assets/badges/100-Pets.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="100 Pets"
+                /><span class="achievement-name">100 PETS</span>
+              </div>
+              <div class="achievement-item locked" id="achievement7DayStreak">
+                <img
+                  src="../assets/badges/7-Day-Streak.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="7 Day Streak"
+                /><span class="achievement-name">7 DAY STREAK</span>
+              </div>
+              <div
+                class="achievement-item locked"
+                id="achievementMasterMischief"
+              >
+                <img
+                  src="../assets/badges/Master-of-Mischief.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Master of Mischief"
+                /><span class="achievement-name">MISCHIEF</span>
+              </div>
+              <div class="achievement-item locked" id="achievementGoldRush">
+                <img
+                  src="../assets/badges/Gold-Rush.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Gold Rush"
+                /><span class="achievement-name">GOLD RUSH</span>
+              </div>
+            </div>
+          </div>
+          <div class="achievement-page" data-ach-page="1" style="display: none">
+            <div class="achievement-grid">
+              <div class="achievement-item locked" id="achievementSpiderHero">
+                <img
+                  src="../assets/badges/Spider-Hero.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Spider Hero"
+                /><span class="achievement-name">SPIDER HERO</span>
+              </div>
+              <div class="achievement-item locked" id="achievementSushiMaster">
+                <img
+                  src="../assets/badges/Sushi-Master.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Sushi Master"
+                /><span class="achievement-name">SUSHI MASTER</span>
+              </div>
+              <div class="achievement-item locked" id="achievementConsistent">
+                <img
+                  src="../assets/badges/Consistent.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Consistent"
+                /><span class="achievement-name">CONSISTENT</span>
+              </div>
+              <div class="achievement-item locked" id="achievementFishmonger">
+                <img
+                  src="../assets/badges/Fishmonger.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Fishmonger"
+                /><span class="achievement-name">FISHMONGER</span>
+              </div>
+              <div class="achievement-item locked" id="achievementNightCrawler">
+                <img
+                  src="../assets/badges/Night-Crawler.png"
+                  class="achievement-badge"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Night Crawler"
+                /><span class="achievement-name">NIGHT CRAWLER</span>
+              </div>
+            </div>
+          </div>
+          <div class="ball-page-nav">
+            <button
+              class="ball-page-btn"
+              id="achPrev"
+              aria-label="Previous page"
+              disabled
+            >
+              &lt;</button
+            ><span class="ball-page-label" id="achPageLabel">1 / 2</span
+            ><button class="ball-page-btn" id="achNext" aria-label="Next page">
+              &gt;
+            </button>
+          </div>
+        </div>
+      </section>
+      <section class="settings-panel" data-panel="behavior">
+        <div class="control-row full-width-row">
+          <div class="control-label">
+            <span class="control-title" data-i18n="energyLevel"
+              >Energy Level</span
+            >
+          </div>
+          <div class="button-group" id="energyGroup">
+            <button class="group-btn" data-energy="sleepy" data-i18n="sleepy">
+              Sleepy</button
+            ><button class="group-btn" data-energy="active" data-i18n="active">
+              Active</button
+            ><button class="group-btn" data-energy="hyper" id="hyperBtn">
+              Hyper
+              <span class="btn-lock" id="hyperLock"
+                ><svg
+                  class="lock-icon inline-lock"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect
+                    x="3"
+                    y="11"
+                    width="18"
+                    height="11"
+                    rx="2"
+                    ry="2"
+                  ></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+              ></span>
+            </button>
+          </div>
+        </div>
+        <div class="control-row full-width-row">
+          <div class="control-label">
+            <span class="control-title" data-i18n="autoSpawn">Auto Spawn</span>
+          </div>
+          <div
+            style="display: flex; flex-direction: column; gap: 8px; width: 100%"
+          >
+            <div class="button-group">
+              <button class="group-btn" id="fishSpawnBtn" data-i18n="food">
+                Food</button
+              ><button class="group-btn" id="ballSpawnBtn">
+                Ball
+                <span class="btn-lock" id="ballLock"
+                  ><svg
+                    class="lock-icon inline-lock"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+                ></span>
+              </button>
+            </div>
+            <div class="button-group">
+              <button class="group-btn" id="spiderSpawnBtn">
+                Spider
+                <span class="btn-lock" id="spiderLock"
+                  ><svg
+                    class="lock-icon inline-lock"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+                ></span></button
+              ><button class="group-btn" id="portalSpawnBtn">
+                Portal
+                <span class="btn-lock" id="portalLock"
+                  ><svg
+                    class="lock-icon inline-lock"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+                ></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span class="control-title" data-i18n="aggressiveMode"
+              >Aggressive Mode</span
+            >
+          </div>
+          <label class="switch"
+            ><input type="checkbox" id="aggroToggle" /><span
+              class="slider"
+            ></span
+          ></label>
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span class="control-title" data-i18n="walkOnWalls"
+              >Walk on Screen Sides</span
+            >
+          </div>
+          <label class="switch"
+            ><input type="checkbox" id="wallClimbToggle" /><span
+              class="slider"
+            ></span
+          ></label>
+        </div>
+      </section>
+      <section class="settings-panel" data-panel="advanced">
+        <div class="sub-tab-row">
+          <button
+            class="sub-tab-btn active"
+            data-settingstab="basic"
+            type="button"
+            data-i18n="basic"
+          >
+            Basic</button
+          ><button
+            class="sub-tab-btn"
+            data-settingstab="advanced"
+            type="button"
+            data-i18n="advanced"
+          >
+            Advanced</button
+          ><button
+            class="sub-tab-btn"
+            data-settingstab="danger"
+            type="button"
+            data-i18n="danger"
+          >
+            Danger
+          </button>
+        </div>
+        <div id="settingsBasicView" class="settings-subview">
+          <div class="locked-card" id="speechRow">
+            <div class="locked-card-banner" id="speechLock">
+              <svg
+                class="lock-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+              ><span class="lock-text" data-i18n="requiresLevel2"
+                >Reach Level 2</span
+              >
+            </div>
+            <div class="control-row">
+              <div class="control-label">
+                <span class="control-title" data-i18n="speechBubbles"
+                  >Speech Bubbles</span
+                >
+              </div>
+              <label class="switch" id="speechSwitchWrap"
+                ><input type="checkbox" id="speechToggle" /><span
+                  class="slider"
+                ></span
+              ></label>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <span class="control-title" data-i18n="hideFullscreen"
+                >Hide in Fullscreen</span
+              >
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="hideInFullscreenToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <span class="control-title" data-i18n="showOnAllTabs"
+                >Show on All Tabs</span
+              >
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="showOnAllTabsToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <span class="control-title" data-i18n="language">Language</span>
+            </div>
+            <select id="languageSelect" class="lang-select">
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="it">Italiano</option>
+              <option value="ar">العربية</option>
+            </select>
+          </div>
+          <div class="control-row" id="disabledSitesRow">
+            <div class="control-label">
+              <span class="control-title" data-i18n="websiteRules"
+                >Website Rules</span
+              >
+            </div>
+            <button
+              type="button"
+              id="openDisabledSitesBtn"
+              class="disabled-icon-btn"
+              data-i18n-title="manageWebsiteRules"
+              title="Manage website rules (Allowlist / Blacklist)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+          <div
+            id="disabledSitesManagerContainer"
+            style="
+              display: none;
+              flex-direction: column;
+              gap: 8px;
+              margin-top: 4px;
+            "
+          >
+            <button
+              type="button"
+              id="closeDisabledSitesTopBtn"
+              class="disabled-site-current-btn"
+              style="width: 100%; text-align: center; justify-content: center"
+              data-i18n-title="backToSettings"
+              title="Back to Settings"
+            >
+              <span data-i18n="backToSettings">← Back to Settings</span>
+            </button>
+            <div class="control-row">
+              <div class="control-label">
+                <span class="control-title" data-i18n="allowlistOnly"
+                  >Allowlist Only</span
+                >
+              </div>
+              <label class="switch"
+                ><input type="checkbox" id="allowlistModeToggle" /><span
+                  class="slider"
+                ></span
+              ></label>
+            </div>
+            <div class="disabled-site-card">
+              <div class="disabled-site-card-title" data-i18n="addWebsite">
+                Add Website
+              </div>
+              <div class="disabled-site-input-row">
+                <input
+                  type="text"
+                  id="addDisabledSiteInput"
+                  class="disabled-site-input"
+                  data-i18n-placeholder="addSitePlaceholder"
+                  placeholder="e.g. github.com"
+                /><button
+                  type="button"
+                  id="addDisabledSiteBtn"
+                  class="disabled-site-add-btn"
+                  data-i18n-title="addWebsite"
+                  title="Add website"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+              </div>
+              <button
+                type="button"
+                id="addCurrentSiteBtn"
+                class="disabled-site-current-btn"
+                data-i18n-title="addCurrentSite"
+                title="Add current website domain"
+              >
+                <span data-i18n="addCurrentSite">+ Add Current Site</span>
+              </button>
+            </div>
+            <div class="disabled-site-card">
+              <div class="disabled-site-card-header">
+                <span
+                  class="disabled-site-card-title"
+                  id="disabledSitesListCardTitle"
+                  >Blacklist</span
+                ><button
+                  type="button"
+                  id="closeDisabledSitesBtn"
+                  class="disabled-site-back-btn"
+                  title="Save and close"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </button>
+              </div>
+              <div
+                id="disabledSitesListContainer"
+                class="disabled-site-list"
+              ></div>
+            </div>
+          </div>
+          <div class="control-row" id="activityControlsRow">
+            <div class="control-label">
+              <span class="control-title" data-i18n="activityControls"
+                >Spawn Rates</span
+              >
+            </div>
+            <button
+              type="button"
+              id="openActivityControlsBtn"
+              class="disabled-icon-btn"
+              data-i18n-title="manageActivityControls"
+              title="Customize spawn rates"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14"></path>
+                <path d="M13 6l6 6-6 6"></path>
+              </svg>
+            </button>
+          </div>
+          <div
+            id="activityControlsContainer"
+            class="activity-controls-view"
+            style="display: none"
+          >
+            <button
+              type="button"
+              id="closeActivityControlsBtn"
+              class="disabled-site-current-btn activity-back-btn"
+              data-i18n-title="backToSettings"
+              title="Back to Settings"
+            >
+              <span data-i18n="backToSettings">← Back to Settings</span>
+            </button>
+            <div class="sub-tab-row">
+              <button
+                class="sub-tab-btn active"
+                data-activitytab="play"
+                type="button"
+                data-i18n="activityGroupPlay"
+              >
+                Section 1</button
+              ><button
+                class="sub-tab-btn"
+                data-activitytab="effects"
+                type="button"
+                data-i18n="activityGroupEffects"
+              >
+                Section 2
+              </button>
+            </div>
+            <div
+              id="activityPlayView"
+              class="activity-setting-group"
+              style="display: flex"
+            >
+              <div class="activity-setting-card">
+                <div class="activity-setting-main">
+                  <div class="control-label">
+                    <span class="control-title" data-i18n="ballAppearances"
+                      >Ball appearances</span
+                    >
                   </div>
-                  
-                  <div class="tree-connector"></div>
-
-                  <!-- TIER 2 (Branch) -->
-                  <div class="tree-row tree-row-core" style="--tree-branch-width: 274px;">
-                    <div class="tree-item" id="treeNodeSpeech" data-xp="10">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Speech Bubble</span><span class="tree-meta">Level 2</span></div>
-                    </div>
-                    <div class="tree-item unlocked" id="treeNodeFish">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12s4-6 10-6 8 6 8 6-2 6-8 6-10-6-10-6z"/><path d="M21 12l-4-3v6z"/><circle cx="9" cy="11" r="1"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Fish Hunt</span><span class="tree-meta">Core</span></div>
-                    </div>
-                    <div class="tree-item unlocked" id="treeNodeClimb">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M9 18l4-4 3 3 4-5"/><path d="M12 6h.01"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Wall Ninja</span><span class="tree-meta">Core</span></div>
-                    </div>
-                    <div class="tree-item" id="treeNodeSize" data-xp="60">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6"/><path d="M10 14 3 21"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Size & Weight</span><span class="tree-meta">Level 4</span></div>
-                    </div>
+                  <button
+                    type="button"
+                    class="toggle-info-btn activity-info-btn"
+                    data-activity-info="ballFrequency"
+                    aria-expanded="false"
+                  >
+                    ?</button
+                  ><select
+                    id="ballFrequencySelect"
+                    class="styled-select activity-frequency-select"
+                  >
+                    <option value="rare" data-i18n="frequencyRare">Rare</option>
+                    <option value="normal" data-i18n="frequencyBalanced">
+                      Balanced
+                    </option>
+                    <option value="often" data-i18n="frequencyOften">
+                      Often
+                    </option>
+                  </select>
+                </div>
+                <div
+                  class="activity-info-panel"
+                  data-activity-info-panel="ballFrequency"
+                  hidden
+                  data-i18n="infoBallFrequency"
+                >
+                  Controls automatic balls. Manual balls are unchanged.
+                </div>
+              </div>
+              <div class="activity-setting-card">
+                <div class="activity-setting-main">
+                  <div class="control-label">
+                    <span class="control-title" data-i18n="foodAppearances"
+                      >Food appearances</span
+                    >
                   </div>
-
-                  <div class="tree-connector"></div>
-
-                  <!-- TIER 3 -->
-                  <div class="tree-item unlocked" id="treeNodePetting">
-                    <div class="tree-node">
-                      <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.4-9.3-8.4C.4 8.7 2.7 4 7 4c2.1 0 3.7 1.2 5 3 1.3-1.8 2.9-3 5-3 4.3 0 6.6 4.7 4.3 8.6C19 16.6 12 21 12 21z"/></svg>
-                    </div>
-                    <div class="tree-info"><span class="tree-title">Pet Bond</span><span class="tree-meta">Core</span></div>
+                  <button
+                    type="button"
+                    class="toggle-info-btn activity-info-btn"
+                    data-activity-info="fishFrequency"
+                    aria-expanded="false"
+                  >
+                    ?</button
+                  ><select
+                    id="fishFrequencySelect"
+                    class="styled-select activity-frequency-select"
+                  >
+                    <option value="rare" data-i18n="frequencyRare">Rare</option>
+                    <option value="normal" data-i18n="frequencyBalanced">
+                      Balanced
+                    </option>
+                    <option value="often" data-i18n="frequencyOften">
+                      Often
+                    </option>
+                  </select>
+                </div>
+                <div
+                  class="activity-info-panel"
+                  data-activity-info-panel="fishFrequency"
+                  hidden
+                  data-i18n="infoFishFrequency"
+                >
+                  Controls automatic food drops for your pet.
+                </div>
+              </div>
+              <div class="activity-setting-card">
+                <div class="activity-setting-main">
+                  <div class="control-label">
+                    <span class="control-title" data-i18n="spiderVisits"
+                      >Spider visits</span
+                    >
                   </div>
-
-                  <div class="tree-connector"></div>
-
-                  <!-- TIER 4 (Branch) -->
-                  <div class="tree-row" style="--tree-branch-width: 91px;">
-                    <div class="tree-item" id="treeNodeBall" data-xp="10">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18M3 12h18"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Ball Chaser</span><span class="tree-meta">Level 2</span></div>
-                    </div>
-                    <div class="tree-item" id="treeNodeSpider" data-xp="30">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Spider Hunter</span><span class="tree-meta">Level 3</span></div>
-                    </div>
+                  <button
+                    type="button"
+                    class="toggle-info-btn activity-info-btn"
+                    data-activity-info="spiderFrequency"
+                    aria-expanded="false"
+                  >
+                    ?</button
+                  ><select
+                    id="spiderFrequencySelect"
+                    class="styled-select activity-frequency-select"
+                  >
+                    <option value="rare" data-i18n="frequencyRare">Rare</option>
+                    <option value="normal" data-i18n="frequencyBalanced">
+                      Balanced
+                    </option>
+                    <option value="often" data-i18n="frequencyOften">
+                      Often
+                    </option>
+                  </select>
+                </div>
+                <div
+                  class="activity-info-panel"
+                  data-activity-info-panel="spiderFrequency"
+                  hidden
+                  data-i18n="infoSpiderFrequency"
+                >
+                  Controls automatic spider challenges.
+                </div>
+              </div>
+            </div>
+            <div
+              id="activityEffectsView"
+              class="activity-setting-group"
+              style="display: none"
+            >
+              <div class="activity-setting-card">
+                <div class="activity-setting-main">
+                  <div class="control-label">
+                    <span class="control-title" data-i18n="portalVisits"
+                      >Portal visits</span
+                    >
                   </div>
-
-                  <div class="tree-connector"></div>
-
-                  <!-- TIER 5 -->
-                  <div class="tree-item" id="treeNodeCompanion" data-xp="100">
-                    <div class="tree-node">
-                      <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M8 13c1.7 0 3-1.3 3-3S9.7 7 8 7s-3 1.3-3 3 1.3 3 3 3z"/><path d="M2 21c.7-3 2.7-5 6-5s5.3 2 6 5"/><path d="M10 21c.5-2.3 2.2-4 5-4 2.9 0 4.6 1.7 5 4"/></svg>
-    </div>
-                    <div class="tree-info"><span class="tree-title">Companion Mode</span><span class="tree-meta">Level 5</span></div>
+                  <button
+                    type="button"
+                    class="toggle-info-btn activity-info-btn"
+                    data-activity-info="portalFrequency"
+                    aria-expanded="false"
+                  >
+                    ?</button
+                  ><select
+                    id="portalFrequencySelect"
+                    class="styled-select activity-frequency-select"
+                  >
+                    <option value="rare" data-i18n="frequencyRare">Rare</option>
+                    <option value="normal" data-i18n="frequencyBalanced">
+                      Balanced
+                    </option>
+                    <option value="often" data-i18n="frequencyOften">
+                      Often
+                    </option>
+                  </select>
+                </div>
+                <div
+                  class="activity-info-panel"
+                  data-activity-info-panel="portalFrequency"
+                  hidden
+                  data-i18n="infoPortalFrequency"
+                >
+                  Controls automatic portal pairs after they are unlocked.
+                </div>
+              </div>
+              <div class="activity-setting-card">
+                <div class="activity-setting-main">
+                  <div class="control-label">
+                    <span class="control-title" data-i18n="soapBubbles"
+                      >Soap bubbles</span
+                    >
                   </div>
-
-                  <div class="tree-connector"></div>
-
-                  <!-- TIER 6 (Branch): Mischief + Portal side by side -->
-                  <div class="tree-row" style="--tree-branch-width: 91px;">
-                    <div class="tree-item" id="treeNodeMischief" data-xp="150">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Page Mischief</span><span class="tree-meta">Level 6</span></div>
-                    </div>
-                    <div class="tree-item" id="treeNodePortal" data-xp="210">
-                      <div class="tree-node">
-                        <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="5" ry="9"/><path d="M2 12h4M18 12h4"/><path d="M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>
-                      </div>
-                      <div class="tree-info"><span class="tree-title">Portal Traveler</span><span class="tree-meta">Level 7</span></div>
-                    </div>
+                  <button
+                    type="button"
+                    class="toggle-info-btn activity-info-btn"
+                    data-activity-info="soapBubbleFrequency"
+                    aria-expanded="false"
+                  >
+                    ?</button
+                  ><select
+                    id="soapBubbleFrequencySelect"
+                    class="styled-select activity-frequency-select"
+                  >
+                    <option value="off" data-i18n="frequencyOff">Off</option>
+                    <option value="rare" data-i18n="frequencyRare">Rare</option>
+                    <option value="normal" data-i18n="frequencyBalanced">
+                      Balanced
+                    </option>
+                    <option value="often" data-i18n="frequencyOften">
+                      Often
+                    </option>
+                  </select>
+                </div>
+                <div
+                  class="activity-info-panel"
+                  data-activity-info-panel="soapBubbleFrequency"
+                  hidden
+                  data-i18n="infoSoapBubbleFrequency"
+                >
+                  Controls floating soap-bubble surprises.
+                </div>
+              </div>
+              <div class="activity-setting-card" id="ballPropsActivityCard">
+                <div class="activity-setting-main">
+                  <div class="control-label">
+                    <span class="control-title" data-i18n="ballPropsEnabled"
+                      >Ball Props</span
+                    >
                   </div>
-
-                  <div class="tree-connector"></div>
-
-                  <!-- TIER 7 -->
-                  <div class="tree-item" id="treeNodeHyper" data-xp="280">
-                    <div class="tree-node">
-                      <svg class="tree-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.1-2.1-.2-4.1 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-                    </div>
-                    <div class="tree-info"><span class="tree-title">Hyper Energy</span><span class="tree-meta">Level 8</span></div>
-                  </div>
+                  <button
+                    type="button"
+                    class="toggle-info-btn activity-info-btn"
+                    data-activity-info="ballProps"
+                    aria-expanded="false"
+                  >
+                    ?</button
+                  ><select
+                    id="ballPropsActivitySelect"
+                    class="styled-select activity-frequency-select"
+                  >
+                    <option value="off" data-i18n="frequencyOff">Off</option>
+                    <option value="on" data-i18n="settingOn">On</option>
+                  </select>
+                </div>
+                <div
+                  class="activity-info-panel"
+                  data-activity-info-panel="ballProps"
+                  hidden
+                  data-i18n="infoBallProps"
+                >
+                  Interactive basketball hoop and bowling pins.
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        <button id="toggleTreeBtn" class="toggle-tree-btn">Show Skills Tree</button>
-      </div>
-    </section>
-
-  </div>
-
-  <script src="../src/quests.js"></script>
-  <script src="../src/fairplay.js"></script>
-  <script src="../src/popup.js"></script>
-</body>
+        <div
+          id="settingsAdvancedView"
+          class="settings-subview"
+          style="display: none"
+        >
+          <div class="control-row">
+            <div class="control-label">
+              <span class="control-title" data-i18n="lowPowerMode"
+                >Low Power Mode</span
+              >
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="lowPowerToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+          <div class="locked-card" id="mischiefRow">
+            <div class="locked-card-banner" id="mischiefLock">
+              <svg
+                class="lock-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+              ><span class="lock-text" data-i18n="level5needed"
+                >Reach Level 6</span
+              >
+            </div>
+            <div class="control-row">
+              <div class="control-label">
+                <span class="control-title" data-i18n="pageMischief"
+                  >Page Mischief</span
+                >
+              </div>
+              <label class="switch" id="mischiefSwitchWrap"
+                ><input type="checkbox" id="uiMischiefToggle" /><span
+                  class="slider"
+                ></span
+              ></label>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <span class="control-title" data-i18n="rareEvents"
+                >Rare Events</span
+              >
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="rareEventsToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+          <div class="locked-card" id="mischiefRateRow">
+            <div class="locked-card-banner" id="mischiefRateLock">
+              <svg
+                class="lock-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg
+              ><span class="lock-text" data-i18n="requiresLevel5"
+                >Reach Level 6</span
+              >
+            </div>
+            <div class="control-row">
+              <div class="control-label">
+                <span class="control-title" data-i18n="mischiefRate"
+                  >Mischief Rate</span
+                >
+              </div>
+              <div class="stepper-controls" id="mischiefRateControls">
+                <button class="stepper-btn" id="mischiefMinus">-</button
+                ><span class="val-badge" id="mischiefRateVal">11%</span
+                ><button class="stepper-btn" id="mischiefPlus">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="control-row" id="dragHandRow">
+            <div class="control-label">
+              <span class="control-title" data-i18n="dragHand"
+                >Drag & Drop Hand</span
+              >
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="dragHandToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+        </div>
+        <div
+          id="settingsDangerView"
+          class="settings-subview"
+          style="display: none"
+        >
+          <div class="locked-card" id="ioCardContainer">
+            <div
+              class="control-row"
+              id="ioCard"
+              style="
+                border: none;
+                border-radius: 0;
+                background: transparent;
+                cursor: default;
+              "
+            >
+              <div class="control-label">
+                <span class="control-title" data-i18n="exportImport"
+                  >Export / Import</span
+                >
+              </div>
+              <div class="reset-confirm-wrap" style="display: flex">
+                <div
+                  class="confirm-box confirm"
+                  id="exportDataBtn"
+                  data-i18n-title="exportSettings"
+                  title="Export settings"
+                  role="button"
+                  tabindex="0"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </div>
+                <div
+                  class="confirm-box"
+                  id="importDataBtn"
+                  data-i18n-title="importSettings"
+                  title="Import settings"
+                  role="button"
+                  tabindex="0"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 5 17 10" />
+                    <line x1="12" y1="5" x2="12" y2="17" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="io-status" id="ioStatusMsg"></div>
+          </div>
+          <input
+            type="file"
+            id="importFileInput"
+            accept=".json"
+            style="display: none"
+          />
+          <div class="control-row" id="freePlayRow">
+            <div class="control-label">
+              <span class="control-title" data-i18n="freePlayMode"
+                >Sandbox Mode</span
+              >
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="freePlayToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <span class="control-title">Animated Favicon</span>
+            </div>
+            <select
+              id="animatedFaviconSelect"
+              class="lang-select"
+              style="margin-left: auto"
+            >
+              <option value="none">None</option>
+              <option value="amogus">Amogus</option>
+              <option value="patrick">Patrick</option>
+              <option value="duck">Duck</option>
+            </select>
+          </div>
+          <div class="warning-card" id="sizeRow">
+            <div class="control-row">
+              <div class="control-label">
+                <span class="control-title" data-i18n="size">Pet Size</span>
+              </div>
+              <div class="stepper-controls" id="sizeControls">
+                <button class="stepper-btn" id="sizeMinus">-</button
+                ><span class="val-badge" id="sizeVal">1.0x</span
+                ><button class="stepper-btn" id="sizePlus">+</button>
+              </div>
+            </div>
+            <div class="size-warning-banner">
+              <svg class="warning-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M10.3 3.8 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"
+                />
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" /></svg
+              ><span class="lock-text" data-i18n="sizeWarning"
+                >This might cause unexpected behavior</span
+              >
+            </div>
+          </div>
+          <div class="control-row" id="uiSizeRow">
+            <div class="control-label">
+              <span class="control-title" data-i18n="uiSize">UI Size</span>
+            </div>
+            <div class="stepper-controls" id="uiSizeControls">
+              <button class="stepper-btn" id="uiSizeMinus" type="button">-</button
+              ><span class="val-badge" id="uiSizeVal">100%</span
+              ><button class="stepper-btn" id="uiSizePlus" type="button">+</button>
+            </div>
+          </div>
+          <div class="reset-container">
+            <div class="danger-action-row">
+              <div class="control-row danger-card" id="resetCard">
+                <div class="control-label">
+                  <span
+                    class="control-title danger-text"
+                    data-i18n="resetProgress"
+                    >Reset Progress</span
+                  >
+                </div>
+                <svg
+                  class="tab-icon danger-text"
+                  id="resetIcon"
+                  viewBox="0 0 24 24"
+                  style="width: 16px; height: 16px; opacity: 0.7"
+                >
+                  <path
+                    d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <div
+                class="reset-confirm-wrap"
+                id="resetActions"
+                style="display: none"
+              >
+                <div
+                  class="confirm-box confirm"
+                  id="confirmReset"
+                  title="Confirm Reset"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <div class="confirm-box cancel" id="cancelReset" title="Cancel">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="settings-panel" data-panel="shop">
+        <div class="sub-tab-row">
+          <button
+            class="sub-tab-btn active"
+            data-shoptab="balls"
+            type="button"
+            data-i18n="items"
+          >
+            ITEMS</button
+          ><button
+            class="sub-tab-btn"
+            data-shoptab="pets"
+            type="button"
+            data-i18n="pets"
+          >
+            Pets</button
+          ><button
+            class="sub-tab-btn"
+            data-shoptab="boosts"
+            type="button"
+            data-i18n="boosts"
+          >
+            Boosts
+          </button>
+        </div>
+        <div
+          id="itemsSubTabRow"
+          class="sub-tab-row"
+          style="
+            margin-top: 6px;
+            margin-bottom: 8px;
+            justify-content: center;
+            gap: 8px;
+          "
+        >
+          <button
+            class="sub-tab-btn active"
+            data-itemtab="balls"
+            type="button"
+            style="padding: 3px 14px; font-size: 11px; border-radius: 12px"
+            data-i18n="balls"
+          >
+            BALLS</button
+          ><button
+            class="sub-tab-btn"
+            data-itemtab="hats"
+            type="button"
+            style="padding: 3px 14px; font-size: 11px; border-radius: 12px"
+            data-i18n="hats"
+          >
+            HATS
+          </button>
+        </div>
+        <div id="shopBallsView" class="shop-grid"></div>
+        <div id="shopHatsView" class="shop-grid" style="display: none"></div>
+        <div
+          id="petsSubTabRow"
+          class="sub-tab-row"
+          style="
+            margin-top: 6px;
+            margin-bottom: 8px;
+            justify-content: center;
+            gap: 8px;
+            display: none;
+          "
+        >
+          <button
+            class="sub-tab-btn active"
+            data-pettab="animals"
+            type="button"
+            style="padding: 3px 14px; font-size: 11px; border-radius: 12px"
+            data-i18n="animals"
+          >
+            ANIMALS</button
+          ><button
+            class="sub-tab-btn"
+            data-pettab="characters"
+            type="button"
+            style="padding: 3px 14px; font-size: 11px; border-radius: 12px"
+            data-i18n="characters"
+          >
+            CHARACTERS
+          </button>
+        </div>
+        <div id="shopAnimalsView" class="shop-grid" style="display: none"></div>
+        <div
+          id="shopCharactersView"
+          class="shop-grid"
+          style="display: none"
+        ></div>
+        <div id="shopBoostsView" class="shop-grid" style="display: none"></div>
+      </section>
+      <section class="settings-panel" data-panel="info">
+        <div class="sub-tab-row">
+          <button class="sub-tab-btn active" data-infotab="about" type="button">
+            About</button
+          ><button class="sub-tab-btn" data-infotab="stats" type="button">
+            Stats
+          </button>
+        </div>
+        <div id="aboutInfoView" class="info-view">
+          <button class="about-card" type="button" aria-expanded="false">
+            <span class="about-card-title">What is PixelCat?</span
+            ><span class="about-card-arrow" aria-hidden="true"
+              ><svg viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" /></svg></span
+            ><span class="about-card-body"
+              >A pixel pet for YouTube. It roams, plays, and grows as you watch
+              videos.</span
+            ></button
+          ><button class="about-card" type="button" aria-expanded="false">
+            <span class="about-card-title">How levels work</span
+            ><span class="about-card-arrow" aria-hidden="true"
+              ><svg viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" /></svg></span
+            ><span class="about-card-body"
+              >Earn XP by petting, feeding, and playing. Level up to unlock new
+              features.</span
+            ></button
+          ><button class="about-card" type="button" aria-expanded="false">
+            <span class="about-card-title">Earning coins</span
+            ><span class="about-card-arrow" aria-hidden="true"
+              ><svg viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" /></svg></span
+            ><span class="about-card-body"
+              >Coins drop during play. Click them to collect! Get daily bonuses
+              by opening the popup.</span
+            ></button
+          ><button class="about-card" type="button" aria-expanded="false">
+            <span class="about-card-title">Daily quests</span
+            ><span class="about-card-arrow" aria-hidden="true"
+              ><svg viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" /></svg></span
+            ><span class="about-card-body"
+              >Complete 3 tasks every day to earn rewards and keep your streak
+              going.</span
+            ></button
+          ><button class="about-card" type="button" aria-expanded="false">
+            <span class="about-card-title">Achievements</span
+            ><span class="about-card-arrow" aria-hidden="true"
+              ><svg viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" /></svg></span
+            ><span class="about-card-body"
+              >Earn badges for special milestones, like your first pet or
+              catching many spiders.</span
+            ></button
+          ><button class="about-card" type="button" aria-expanded="false">
+            <span class="about-card-title">Found a bug?</span
+            ><span class="about-card-arrow" aria-hidden="true"
+              ><svg viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" /></svg></span
+            ><span class="about-card-body"
+              >Please don't report bugs, I am too lazy to fix them hhhh. Just
+              pretend it's a feature!</span
+            >
+          </button>
+          <div class="support-grid">
+            <a
+              href="https://ko-fi.com/pixelcats"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="support-btn btn-donate"
+              title="Donate on Ko-fi"
+              ><svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M11.351 2.715c-2.7 0-4.986.025-6.83.26C2.078 3.285 0 5.154 0 8.61c0 3.506.182 6.13 1.585 8.493 1.584 2.701 4.233 4.182 7.662 4.182h.83c4.209 0 6.494-2.234 7.637-4a9.5 9.5 0 0 0 1.091-2.338C21.792 14.688 24 12.22 24 9.208v-.415c0-3.247-2.13-5.507-5.792-5.87-1.558-.156-2.65-.208-6.857-.208m0 1.947c4.208 0 5.09.052 6.571.182 2.624.311 4.13 1.584 4.13 4v.39c0 2.156-1.792 3.844-3.87 3.844h-.935l-.156.649c-.208 1.013-.597 1.818-1.039 2.546-.909 1.428-2.545 3.064-5.922 3.064h-.805c-2.571 0-4.831-.883-6.078-3.195-1.09-2-1.298-4.155-1.298-7.506 0-2.181.857-3.402 3.012-3.714 1.533-.233 3.559-.26 6.39-.26m6.547 2.287c-.416 0-.65.234-.65.546v2.935c0 .311.234.545.65.545 1.324 0 2.051-.754 2.051-2s-.727-2.026-2.052-2.026m-10.39.182c-1.818 0-3.013 1.48-3.013 3.142 0 1.533.858 2.857 1.949 3.897.727.701 1.87 1.429 2.649 1.896a1.47 1.47 0 0 0 1.507 0c.78-.467 1.922-1.195 2.623-1.896 1.117-1.039 1.974-2.364 1.974-3.897 0-1.662-1.247-3.142-3.039-3.142-1.065 0-1.792.545-2.338 1.298-.493-.753-1.246-1.298-2.312-1.298"
+                /></svg></a
+            ><a
+              href="https://github.com/KINGS-MZ/PixelCat"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="support-btn btn-github"
+              title="GitHub"
+              ><svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
+                /></svg></a
+            ><a
+              href="https://www.reddit.com/user/S-Nexus/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="support-btn btn-reddit"
+              title="Reddit"
+              ><svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"
+                /></svg></a
+            ><a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="support-btn btn-discord"
+              title="Discord"
+              style="display: none"
+              ><svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"
+                /></svg
+            ></a>
+          </div>
+        </div>
+        <div id="statsInfoView" class="info-view" style="display: none">
+          <div id="statsCardsContainer" class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">🐟 Fish Eaten</span
+              ><span class="stat-value" id="statFish">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">🕷️ Spiders Caught</span
+              ><span class="stat-value" id="statSpiders">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">✨ Pet Sessions</span
+              ><span class="stat-value" id="statPets">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label"
+                ><svg
+                  class="coin-icon stat-coin-icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                  <path d="M12 18V6" />
+                </svg>
+                Coins Collected </span
+              ><span class="stat-value" id="statCoinsCollected">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">🎾 Ball Catches</span
+              ><span class="stat-value" id="statBalls">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">📜 Quests Done</span
+              ><span class="stat-value" id="statQuests">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">🏆 Perfect Days</span
+              ><span class="stat-value" id="statPerfectDays">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">🔥 Daily Streak</span
+              ><span class="stat-value" id="statDailyStreak">0</span>
+            </div>
+          </div>
+          <div
+            id="treatsTreeContainer"
+            class="treats-tree-container"
+            style="display: none"
+          >
+            <div class="tree-header">
+              <span>Skills Tree</span
+              ><span class="tree-header-sub">Drag the tree to explore</span>
+            </div>
+            <div class="skill-tree-shell">
+              <div class="skill-tree-viewport">
+                <div class="skill-tree-map" id="skillTreeMap">
+                  <div class="tree-nodes">
+                    <div class="tree-item unlocked" id="treeNodeBase">
+                      <div class="tree-node">
+                        <svg
+                          class="tree-icon"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path d="M12 20v-6M6 10l6-6 6 6M4 16h16" />
+                        </svg>
+                      </div>
+                      <div class="tree-info">
+                        <span class="tree-title">Basic Instincts</span
+                        ><span class="tree-meta">Core</span>
+                      </div>
+                    </div>
+                    <div class="tree-connector"></div>
+                    <div
+                      class="tree-row tree-row-core"
+                      style="--tree-branch-width: 274px"
+                    >
+                      <div class="tree-item" id="treeNodeSpeech" data-xp="10">
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"
+                            />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Speech Bubble</span
+                          ><span class="tree-meta">Level 2</span>
+                        </div>
+                      </div>
+                      <div class="tree-item unlocked" id="treeNodeFish">
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              d="M3 12s4-6 10-6 8 6 8 6-2 6-8 6-10-6-10-6z"
+                            />
+                            <path d="M21 12l-4-3v6z" />
+                            <circle cx="9" cy="11" r="1" />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Fish Hunt</span
+                          ><span class="tree-meta">Core</span>
+                        </div>
+                      </div>
+                      <div class="tree-item unlocked" id="treeNodeClimb">
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path d="M4 20V4" />
+                            <path d="M9 18l4-4 3 3 4-5" />
+                            <path d="M12 6h.01" />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Wall Ninja</span
+                          ><span class="tree-meta">Core</span>
+                        </div>
+                      </div>
+                      <div
+                        class="tree-item unlocked"
+                        id="treeNodeSize"
+                        data-xp="0"
+                      >
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path d="M4 14h6v6" />
+                            <path d="M10 14 3 21" />
+                            <path d="M20 10h-6V4" />
+                            <path d="M14 10l7-7" />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Size & Weight</span
+                          ><span class="tree-meta">Always Unlocked</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tree-connector"></div>
+                    <div class="tree-item unlocked" id="treeNodePetting">
+                      <div class="tree-node">
+                        <svg
+                          class="tree-icon"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            d="M12 21s-7-4.4-9.3-8.4C.4 8.7 2.7 4 7 4c2.1 0 3.7 1.2 5 3 1.3-1.8 2.9-3 5-3 4.3 0 6.6 4.7 4.3 8.6C19 16.6 12 21 12 21z"
+                          />
+                        </svg>
+                      </div>
+                      <div class="tree-info">
+                        <span class="tree-title">Pet Bond</span
+                        ><span class="tree-meta">Core</span>
+                      </div>
+                    </div>
+                    <div class="tree-connector"></div>
+                    <div class="tree-row" style="--tree-branch-width: 91px">
+                      <div class="tree-item" id="treeNodeBall" data-xp="10">
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 3a9 9 0 0 0 0 18M3 12h18" />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Ball Chaser</span
+                          ><span class="tree-meta">Level 2</span>
+                        </div>
+                      </div>
+                      <div class="tree-item" id="treeNodeSpider" data-xp="30">
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <circle cx="12" cy="12" r="3" />
+                            <path
+                              d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"
+                            />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Spider Hunter</span
+                          ><span class="tree-meta">Level 3</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tree-connector"></div>
+                    <div class="tree-item" id="treeNodeCompanion" data-xp="100">
+                      <div class="tree-node">
+                        <svg
+                          class="tree-icon"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            d="M16 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"
+                          />
+                          <path
+                            d="M8 13c1.7 0 3-1.3 3-3S9.7 7 8 7s-3 1.3-3 3 1.3 3 3 3z"
+                          />
+                          <path d="M2 21c.7-3 2.7-5 6-5s5.3 2 6 5" />
+                          <path d="M10 21c.5-2.3 2.2-4 5-4 2.9 0 4.6 1.7 5 4" />
+                        </svg>
+                      </div>
+                      <div class="tree-info">
+                        <span class="tree-title">Companion Mode</span
+                        ><span class="tree-meta">Level 5</span>
+                      </div>
+                    </div>
+                    <div class="tree-connector"></div>
+                    <div class="tree-row" style="--tree-branch-width: 91px">
+                      <div
+                        class="tree-item"
+                        id="treeNodeMischief"
+                        data-xp="150"
+                      >
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <polygon
+                              points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                            />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Page Mischief</span
+                          ><span class="tree-meta">Level 6</span>
+                        </div>
+                      </div>
+                      <div class="tree-item" id="treeNodePortal" data-xp="210">
+                        <div class="tree-node">
+                          <svg
+                            class="tree-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <ellipse cx="12" cy="12" rx="5" ry="9" />
+                            <path d="M2 12h4M18 12h4" />
+                            <path
+                              d="M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"
+                            />
+                          </svg>
+                        </div>
+                        <div class="tree-info">
+                          <span class="tree-title">Portal Traveler</span
+                          ><span class="tree-meta">Level 7</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tree-connector"></div>
+                    <div class="tree-item" id="treeNodeHyper" data-xp="280">
+                      <div class="tree-node">
+                        <svg
+                          class="tree-icon"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.1-2.1-.2-4.1 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"
+                          />
+                        </svg>
+                      </div>
+                      <div class="tree-info">
+                        <span class="tree-title">Hyper Energy</span
+                        ><span class="tree-meta">Level 8</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button id="toggleTreeBtn" class="toggle-tree-btn">
+            Show Skills Tree
+          </button>
+          <div
+            style="display: flex; gap: 6px; align-items: center; width: 100%"
+          >
+            <div
+              class="control-row"
+              id="petIdentityCard"
+              style="cursor: default; flex: 1"
+            >
+              <div class="control-label">
+                <span class="control-title"
+                  >🐾 <span id="petNameDisplay">Your Pet</span></span
+                >
+              </div>
+            </div>
+            <div
+              id="petSexBadge"
+              class="pet-sex-badge"
+              style="
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                margin: 0;
+                flex-shrink: 0;
+                align-self: center;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+              "
+            ></div>
+            <button
+              type="button"
+              id="renameBtn"
+              class="confirm-box"
+              title="Rename pet"
+              style="
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                margin: 0;
+                color: #f59e0b;
+                border-color: rgba(245, 158, 11, 0.3);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                align-self: center;
+              "
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 20h9"></path>
+                <path
+                  d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
+                ></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="../src/site-rules.js"></script>
+    <script src="../src/quests.js"></script>
+    <script src="../src/fairplay.js"></script>
+    <script src="../src/popup.js"></script>
+  </body>
 </html>

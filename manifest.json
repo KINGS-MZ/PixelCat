@@ -1,80 +1,77 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "name": "PixelCat",
-  "version": "2.5.6",
-  "description": "Adds a playful pixel pet companion to YouTube and Google with animations, coins, fish, spiders, quests, achievements, and unlockable extras.",
-
+  "version": "2.7.0",
+  "description": "Adds a playful pixel pet companion to your browser with animations, coins, fish, spiders, quests, achievements, and unlockable extras.",
   "permissions": [
-    "storage"
-  ],
-
-  "host_permissions": [
+    "storage",
+    "tabs",
     "<all_urls>"
   ],
-
   "background": {
-    "service_worker": "src/background.js"
+    "scripts": [
+      "src/site-rules.js",
+      "src/quests.js",
+      "src/fairplay.js",
+      "src/background.js"
+    ]
   },
-
   "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
     "48": "assets/icons/icon48.png",
-    "96": "assets/icons/icon96.png"
+    "96": "assets/icons/icon96.png",
+    "128": "assets/icons/icon128.png"
   },
-
-  "action": {
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/owner-gate.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    "assets/*",
+    "assets/animations/*",
+    "assets/animations/bat/*",
+    "assets/animations/frog/*",
+    "assets/animations/skeleton/*",
+    "assets/animations/zombie/*",
+    "assets/badges/*",
+    "assets/balls/*",
+    "assets/Cursor/light/*",
+    "assets/eggs/*",
+    "assets/fishes/*",
+    "assets/icons/*",
+    "assets/runner/*",
+    "assets/runner/amogus/*",
+    "assets/runner/duck/*",
+    "assets/runner/patrick/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pixel-cat@example.com",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "browser_action": {
     "default_popup": "ui/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "32": "assets/icons/icon32.png",
       "48": "assets/icons/icon48.png",
-      "96": "assets/icons/icon96.png"
+      "96": "assets/icons/icon96.png",
+      "128": "assets/icons/icon128.png"
     }
-  },
-
-  "content_scripts": [
-    {
-      "matches": [
-        "*://www.youtube.com/*",
-        "*://youtube.com/*",
-        "*://www.google.com/*",
-        "*://google.com/*",
-        "*://www.google.co.ma/*",
-        "*://google.co.ma/*"
-      ],
-      "css": [
-        "ui/styles.css"
-      ],
-      "js": [
-        "src/quests.js",
-        "src/fairplay.js",
-        "src/cat-storage.js",
-        "src/cat-coins.js",
-        "src/cat-fish.js",
-        "src/cat-balls.js",
-        "src/cat-portals.js",
-        "src/cat-speech.js",
-        "src/content.js"
-      ],
-      "run_at": "document_end"
-    }
-  ],
-
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "assets/icons/*.png",
-        "assets/animations/*.png",
-        "assets/fishes/*.png",
-        "assets/balls/*.png"
-      ],
-      "matches": [
-        "*://www.youtube.com/*",
-        "*://youtube.com/*",
-        "*://www.google.com/*",
-        "*://google.com/*",
-        "*://www.google.co.ma/*",
-        "*://google.co.ma/*"
-      ]
-    }
-  ]
+  }
 }

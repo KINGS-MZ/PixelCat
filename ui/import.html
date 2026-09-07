@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PixelCat Import</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        color-scheme: dark;
+        font-family: Consolas, "Courier New", monospace;
+      }
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: #18181b;
+        color: #e4e4e7;
+        overflow: hidden;
+      }
+      .card-container {
+        position: relative;
+        width: min(340px, 100%);
+      }
+      #sleepCat {
+        position: absolute;
+        right: 70px;
+        top: -41px;
+        width: 48px;
+        height: 39px;
+        background-image: url("../assets/animations/cat.png");
+        background-repeat: no-repeat;
+        background-size: 384px 480px;
+        background-position-y: -297px;
+        image-rendering: pixelated;
+        filter: sepia(1) saturate(8) hue-rotate(-35deg) brightness(0.95)
+          contrast(1.1);
+        animation: cat-sleep 2.667s steps(4) infinite;
+        pointer-events: none;
+        user-select: none;
+        z-index: 5;
+      }
+      @keyframes cat-sleep {
+        from {
+          background-position-x: 0px;
+        }
+        to {
+          background-position-x: -192px;
+        }
+      }
+      .popup-shell {
+        width: 100%;
+        height: min(360px, calc(100vh - 36px));
+        overflow: hidden;
+        border: 1px solid #3f3f46;
+        border-radius: 8px;
+        background: #18181b;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+        display: flex;
+        flex-direction: column;
+      }
+      .header {
+        background: #27272a;
+        padding: 8px 12px;
+        border-bottom: 1px solid #3f3f46;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .brand {
+        color: #f4f4f5;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+      }
+      .version {
+        color: #71717a;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      main {
+        flex: 1;
+        min-height: 0;
+        padding: 14px 14px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      h1 {
+        color: #f4f4f5;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        flex-shrink: 0;
+      }
+      .sub {
+        color: #a1a1aa;
+        font-size: 10px;
+        line-height: 1.45;
+        flex-shrink: 0;
+      }
+      .import-card {
+        flex: 1;
+        min-height: 0;
+        background: rgba(39, 39, 42, 0.55);
+        border: 1.5px dashed #52525b;
+        border-radius: 8px;
+        overflow: hidden;
+        transition:
+          background 0.16s,
+          border-color 0.16s;
+        cursor: pointer;
+      }
+      .import-card:hover,
+      .import-card.drag-over {
+        background: rgba(37, 99, 235, 0.08);
+        border-color: #60a5fa;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        height: 100%;
+        padding: 14px;
+        cursor: pointer;
+        text-align: center;
+      }
+      .upload-icon {
+        width: 30px;
+        height: 30px;
+        border: 1px solid rgba(37, 99, 235, 0.35);
+        border-radius: 8px;
+        color: #60a5fa;
+        background: rgba(37, 99, 235, 0.08);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .upload-icon svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+      }
+      .file-label {
+        color: #f4f4f5;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      #fileName {
+        color: #71717a;
+        font-size: 10px;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      input[type="file"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+      button {
+        width: 100%;
+        min-height: 36px;
+        flex-shrink: 0;
+        border: 1px solid rgba(37, 99, 235, 0.35);
+        border-radius: 8px;
+        background: rgba(37, 99, 235, 0.12);
+        color: #93c5fd;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          background 0.16s,
+          border-color 0.16s,
+          color 0.16s,
+          transform 0.12s;
+      }
+      button:not(:disabled):hover {
+        background: rgba(37, 99, 235, 0.22);
+        border-color: #3b82f6;
+        color: #dbeafe;
+        transform: translateY(-1px);
+      }
+      button:disabled {
+        cursor: not-allowed;
+        color: #71717a;
+        border-color: #3f3f46;
+        background: #27272a;
+      }
+      #status {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 700;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #status:empty {
+        display: none;
+      }
+      #status.ok {
+        padding: 6px 9px;
+        border-radius: 6px;
+        background: rgba(16, 185, 129, 0.12);
+        color: #4ade80;
+        border: 1px solid rgba(16, 185, 129, 0.22);
+      }
+      #status.err {
+        padding: 6px 9px;
+        border-radius: 6px;
+        background: rgba(239, 68, 68, 0.12);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.22);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card-container">
+      <div id="sleepCat" aria-hidden="true"></div>
+      <div class="popup-shell" id="popupShell">
+        <header class="header">
+          <div class="brand">PixelCat</div>
+          <span class="version">Import</span>
+        </header>
+        <main>
+          <h1 data-i18n="importTitle">Import backup</h1>
+          <p class="sub" data-i18n="importDesc">
+            Restore your saved companion, coins, shop items, quests, and
+            settings.
+          </p>
+          <section class="import-card" id="importCard">
+            <label for="backupFile"
+              ><span class="upload-icon" aria-hidden="true"
+                ><svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 5 17 10" />
+                  <line x1="12" y1="5" x2="12" y2="17" /></svg></span
+              ><span class="file-label" data-i18n="importSelect"
+                >Select backup file</span
+              ><span id="fileName" data-i18n="importNoFile"
+                >No file selected</span
+              ></label
+            >
+          </section>
+          <input
+            type="file"
+            id="backupFile"
+            accept=".json,application/json"
+          /><button
+            id="importBtn"
+            type="button"
+            disabled
+            data-i18n="importBackup"
+          >
+            Import backup
+          </button>
+          <div id="status" role="status" aria-live="polite"></div>
+        </main>
+      </div>
+    </div>
+    <script src="../src/fairplay.js"></script>
+    <script src="../src/import.js"></script>
+  </body>
+</html>

@@ -5,10 +5,9 @@
   const STATS_KEY = 'dailyQuestStats';
   const QUEST_VERSION = 5;
 
-  // minXP: quest only enters the pool once catXP >= this value
   const QUEST_DEFINITIONS = [
-    //  Always available 
     {
+      id: 'pet_session',
       type: 'pet_sessions',
       icon: 'care',
       title: 'Pet Session',
@@ -17,6 +16,7 @@
       description: (t) => `Complete ${t} pet session${t === 1 ? '' : 's'}.`
     },
     {
+      id: 'fish_catch',
       type: 'fish_served',
       icon: 'treat',
       title: 'Catch Fish',
@@ -25,6 +25,7 @@
       description: (t) => `Catch or feed ${t} fish${t === 1 ? '' : 'es'}.`
     },
     {
+      id: 'watch_together',
       type: 'watch_seconds',
       icon: 'playback',
       title: 'Watch Together',
@@ -33,6 +34,7 @@
       description: (t) => `Stay active for ${formatDuration(t)}.`
     },
     {
+      id: 'coin_collection',
       type: 'coins_collected',
       icon: 'coin',
       title: 'Collect Coins',
@@ -40,9 +42,8 @@
       targets: [3, 5, 8],
       description: (t) => `Collect ${t} coin drop${t === 1 ? '' : 's'}.`
     },
-
-    //  Google tab quests
     {
+      id: 'google_visit',
       type: 'google_visits',
       icon: 'google',
       title: 'Google Visit',
@@ -51,6 +52,7 @@
       description: (t) => `Open or visit Google ${t} time${t === 1 ? '' : 's'}.`
     },
     {
+      id: 'google_search',
       type: 'google_searches',
       icon: 'google',
       title: 'Search Buddy',
@@ -59,6 +61,7 @@
       description: (t) => `Do ${t} Google search${t === 1 ? '' : 'es'} with your pet.`
     },
     {
+      id: 'google_patrol',
       type: 'google_active_seconds',
       icon: 'google',
       title: 'Google Patrol',
@@ -66,8 +69,8 @@
       targets: [60, 120, 180],
       description: (t) => `Stay with your pet on Google for ${formatDuration(t)}.`
     },
-    //  Unlocked at XP 10 (ball) 
     {
+      id: 'ball_fetch',
       type: 'ball_catches',
       icon: 'ball',
       title: 'Play Fetch',
@@ -75,8 +78,8 @@
       targets: [2, 4, 6],
       description: (t) => `Catch ${t} ball${t === 1 ? '' : 's'}.`
     },
-    //  Unlocked at XP 25 (spider) 
     {
+      id: 'spider_catch',
       type: 'spiders_caught',
       icon: 'shield',
       title: 'Catch Spiders',
@@ -84,8 +87,8 @@
       targets: [1, 2, 3],
       description: (t) => `Catch ${t} spider${t === 1 ? '' : 's'}.`
     },
-    //  Unlocked at XP 70 (companion) 
     {
+      id: 'double_affection',
       type: 'pet_sessions',
       icon: 'care',
       title: 'Double Affection',
@@ -93,8 +96,8 @@
       targets: [4, 5],
       description: (t) => `Complete ${t} pet sessions in one day.`
     },
-    //  Unlocked at XP 100 (mischief/fish) 
     {
+      id: 'fish_feast',
       type: 'fish_served',
       icon: 'treat',
       title: 'Fish Feast',
@@ -103,6 +106,7 @@
       description: (t) => `Feed ${t} fish treats in one day.`
     },
     {
+      id: 'long_session',
       type: 'watch_seconds',
       icon: 'playback',
       title: 'Long Session',
@@ -169,34 +173,38 @@
   function normalizeStats(rawStats) {
     const stats = rawStats && typeof rawStats === 'object' ? rawStats : {};
     return {
-      lifetimeCompleted:     clampInteger(stats.lifetimeCompleted),
-      lifetimeSpidersCaught: clampInteger(stats.lifetimeSpidersCaught),
-      lifetimePets:          clampInteger(stats.lifetimePets),
-      lifetimeFish:          clampInteger(stats.lifetimeFish),
-      lifetimeCoins:         clampInteger(stats.lifetimeCoins),
-      lifetimeBallCatches:   clampInteger(stats.lifetimeBallCatches),
-      lifetimeGoogleVisits:  clampInteger(stats.lifetimeGoogleVisits),
+      lifetimeCompleted:      clampInteger(stats.lifetimeCompleted),
+      lifetimeSpidersCaught:  clampInteger(stats.lifetimeSpidersCaught),
+      lifetimePets:           clampInteger(stats.lifetimePets),
+      lifetimeFish:           clampInteger(stats.lifetimeFish),
+      lifetimeCoins:          clampInteger(stats.lifetimeCoins),
+      lifetimeBallCatches:    clampInteger(stats.lifetimeBallCatches),
+      lifetimeGoogleVisits:   clampInteger(stats.lifetimeGoogleVisits),
       lifetimeGoogleSearches: clampInteger(stats.lifetimeGoogleSearches),
-      lifetimeGoogleSeconds: clampInteger(stats.lifetimeGoogleSeconds),
-      perfectDays:           clampInteger(stats.perfectDays),
-      lastPerfectDate:       typeof stats.lastPerfectDate === 'string' ? stats.lastPerfectDate : ''
+      lifetimeGoogleSeconds:  clampInteger(stats.lifetimeGoogleSeconds),
+      perfectDays:            clampInteger(stats.perfectDays),
+      lastPerfectDate:        typeof stats.lastPerfectDate === 'string' ? stats.lastPerfectDate : ''
     };
   }
 
-  function getDefinition(type) {
+  function getDefinition(type, definitionId) {
+    if (typeof definitionId === 'string' && definitionId) {
+      const exact = QUEST_DEFINITIONS.find((d) => d.id === definitionId && d.type === type);
+      if (exact) return exact;
+    }
     return QUEST_DEFINITIONS.find((d) => d.type === type) || null;
   }
 
   const TARGET_CAPS = Object.freeze({
-    pet_sessions: 8,
-    fish_served: 8,
-    watch_seconds: 900,
-    coins_collected: 16,
-    google_visits: 4,
-    google_searches: 5,
+    pet_sessions:          8,
+    fish_served:           8,
+    watch_seconds:         900,
+    coins_collected:       16,
+    google_visits:         4,
+    google_searches:       5,
     google_active_seconds: 600,
-    ball_catches: 10,
-    spiders_caught: 5
+    ball_catches:          10,
+    spiders_caught:        5
   });
 
   function getQuestDifficulty(stats, dailyStreak, catXP) {
@@ -248,17 +256,12 @@
     return type === 'google_visits' || type === 'google_searches' || type === 'google_active_seconds';
   }
 
-  // Generate today's quests filtered by current XP level.
-  // Difficulty rises slowly with daily streak/perfect quest days and XP, but is capped.
-  function generateState(dateKey, catXP, stats, dailyStreak) {
-    const xp = Math.max(0, catXP || 0);
+  function generateState(dateKey, catXP, stats, dailyStreak, freePlayMode) {
+    const isFreePlay = Boolean(freePlayMode);
+    const xp = isFreePlay ? 270 : Math.max(0, catXP || 0);
     const difficultyLevel = getQuestDifficulty(stats, dailyStreak, xp);
     const random = mulberry32(seedFromString(`pixelcat:${dateKey}:quests:v${QUEST_VERSION}:${difficultyLevel}`));
-
-    // Only pool quests whose minXP <= current XP.
-    // Keep Google quests in the mix, but limit them to one daily slot so the list
-    // never becomes all-Google or annoying for users who mostly use YouTube.
-    const pool = QUEST_DEFINITIONS.filter(d => xp >= d.minXP);
+    const pool = QUEST_DEFINITIONS.filter(d => isFreePlay || xp >= d.minXP);
     const googlePool = pool.filter(d => isGoogleQuestType(d.type));
     const normalPool = pool.filter(d => !isGoogleQuestType(d.type));
     const chosen = [];
@@ -268,12 +271,12 @@
     }
 
     shuffle(normalPool, random).forEach((definition) => {
-      if (chosen.length < 3) chosen.push(definition);
+      if (chosen.length < 3 && !chosen.some((item) => item.type === definition.type)) chosen.push(definition);
     });
 
     if (chosen.length < 3) {
       shuffle(googlePool, random).forEach((definition) => {
-        if (chosen.length < 3 && !chosen.includes(definition)) chosen.push(definition);
+        if (chosen.length < 3 && !chosen.some((item) => item.type === definition.type)) chosen.push(definition);
       });
     }
 
@@ -286,6 +289,7 @@
         const target = scaleQuestTarget(definition.type, baseTarget, difficultyLevel);
         return {
           id: `${dateKey}:${definition.type}:${index}`,
+          definitionId: definition.id,
           type: definition.type,
           target,
           progress: 0,
@@ -296,12 +300,13 @@
   }
 
   function normalizeQuest(quest) {
-    const definition = getDefinition(quest && quest.type);
+    const definition = getDefinition(quest && quest.type, quest && quest.definitionId);
     if (!definition) return null;
     const target = clampInteger(quest.target) || definition.targets[0];
     const progress = Math.min(target, clampInteger(quest.progress));
     return {
       id: typeof quest.id === 'string' ? quest.id : `${definition.type}:${target}`,
+      definitionId: definition.id,
       type: definition.type,
       target,
       progress,
@@ -309,25 +314,27 @@
     };
   }
 
-  function ensureState(rawState, dateKey, catXP, stats, dailyStreak) {
+  function ensureState(rawState, dateKey, catXP, stats, dailyStreak, freePlayMode) {
+    const isFreePlay = Boolean(freePlayMode);
     const normalizedDateKey = dateKey || getDateKey();
     const state = rawState && typeof rawState === 'object' ? rawState : null;
 
     if (!state || state.version !== QUEST_VERSION || state.dateKey !== normalizedDateKey || !Array.isArray(state.quests)) {
-      return { state: generateState(normalizedDateKey, catXP, stats, dailyStreak), changed: true };
+      return { state: generateState(normalizedDateKey, catXP, stats, dailyStreak, isFreePlay), changed: true };
     }
 
     const quests = state.quests.map(normalizeQuest).filter(Boolean);
-    const availableQuestCount = QUEST_DEFINITIONS.filter(d => Math.max(0, catXP || 0) >= d.minXP).length;
+    const availableQuestCount = QUEST_DEFINITIONS.filter(d => (isFreePlay || Math.max(0, catXP || 0) >= d.minXP)).length;
     const expectedQuestCount = Math.min(3, availableQuestCount);
     if (quests.length < expectedQuestCount) {
-      return { state: generateState(normalizedDateKey, catXP, stats, dailyStreak), changed: true };
+      return { state: generateState(normalizedDateKey, catXP, stats, dailyStreak, isFreePlay), changed: true };
     }
 
     const changed = quests.length !== state.quests.length || quests.some((quest, index) => {
       const original = state.quests[index];
       return !original || quest.id !== original.id || quest.progress !== original.progress ||
-             quest.completed !== original.completed || quest.target !== original.target;
+             quest.completed !== original.completed || quest.target !== original.target ||
+             quest.definitionId !== original.definitionId;
     });
 
     return { state: { version: QUEST_VERSION, dateKey: normalizedDateKey, difficultyLevel: clampInteger(state.difficultyLevel), quests }, changed };
@@ -343,7 +350,6 @@
     return `${s} sec`;
   }
 
-
   function formatQuestProgress(quest) {
     if (quest.type === 'watch_seconds' || quest.type === 'google_active_seconds') {
       return `${formatDuration(quest.progress)} / ${formatDuration(quest.target)}`;
@@ -353,7 +359,7 @@
 
   function buildSnapshot(state, stats) {
     const quests = state.quests.map((quest) => {
-      const definition = getDefinition(quest.type);
+      const definition = getDefinition(quest.type, quest.definitionId);
       return {
         id: quest.id,
         type: quest.type,
@@ -389,17 +395,22 @@
     return Math.max(0, Math.floor((next.getTime() - current.getTime()) / 1000));
   }
 
-  async function getSnapshot(storageArea) {
-    const data = await localGet(storageArea, { [STORAGE_KEY]: null, [STATS_KEY]: null, catXP: 0, dailyStreak: 0 });
+  let recordEventQueue = Promise.resolve();
+
+  async function getSnapshotNow(storageArea) {
+    const data = await localGet(storageArea, { [STORAGE_KEY]: null, [STATS_KEY]: null, catXP: 0, dailyStreak: 0, freePlayMode: false, unlockAll: false });
     const stats = normalizeStats(data[STATS_KEY]);
-    const ensured = ensureState(data[STORAGE_KEY], getDateKey(), data.catXP || 0, stats, data.dailyStreak || 0);
+    const ensured = ensureState(data[STORAGE_KEY], getDateKey(), data.catXP || 0, stats, data.dailyStreak || 0, data.freePlayMode || data.unlockAll);
     if (ensured.changed) {
       await localSet(storageArea, { [STORAGE_KEY]: ensured.state, [STATS_KEY]: stats });
     }
     return buildSnapshot(ensured.state, stats);
   }
 
-  let recordEventQueue = Promise.resolve();
+  function getSnapshot(storageArea) {
+    recordEventQueue = recordEventQueue.catch(() => {}).then(() => getSnapshotNow(storageArea));
+    return recordEventQueue;
+  }
 
   function recordEvent(storageArea, type, amount) {
     recordEventQueue = recordEventQueue.catch(() => {}).then(() => recordEventNow(storageArea, type, amount));
@@ -408,25 +419,25 @@
 
   async function recordEventNow(storageArea, type, amount) {
     const increment = Math.max(0, Number(amount) || 0);
-    if (!increment) return getSnapshot(storageArea);
+    if (!increment) return getSnapshotNow(storageArea);
 
-    const data = await localGet(storageArea, { [STORAGE_KEY]: null, [STATS_KEY]: null, catXP: 0, dailyStreak: 0 });
+    const data = await localGet(storageArea, { [STORAGE_KEY]: null, [STATS_KEY]: null, catXP: 0, dailyStreak: 0, freePlayMode: false, unlockAll: false });
     const stats = normalizeStats(data[STATS_KEY]);
-    const ensured = ensureState(data[STORAGE_KEY], getDateKey(), data.catXP || 0, stats, data.dailyStreak || 0);
+    const ensured = ensureState(data[STORAGE_KEY], getDateKey(), data.catXP || 0, stats, data.dailyStreak || 0, data.freePlayMode || data.unlockAll);
     const state = ensured.state;
     let stateChanged = ensured.changed;
     let statsChanged = false;
     let questsJustCompleted = 0;
     let perfectDayJustUnlocked = false;
 
-    if (type === 'spiders_caught')  { stats.lifetimeSpidersCaught += increment; statsChanged = true; }
-    if (type === 'pet_sessions')    { stats.lifetimePets += increment; statsChanged = true; }
-    if (type === 'fish_served')     { stats.lifetimeFish += increment; statsChanged = true; }
-    if (type === 'coins_collected') { stats.lifetimeCoins += increment; statsChanged = true; }
-    if (type === 'ball_catches')    { stats.lifetimeBallCatches += increment; statsChanged = true; }
-    if (type === 'google_visits')   { stats.lifetimeGoogleVisits += increment; statsChanged = true; }
-    if (type === 'google_searches') { stats.lifetimeGoogleSearches += increment; statsChanged = true; }
-    if (type === 'google_active_seconds') { stats.lifetimeGoogleSeconds += increment; statsChanged = true; }
+    if (type === 'spiders_caught')         { stats.lifetimeSpidersCaught += increment; statsChanged = true; }
+    if (type === 'pet_sessions')           { stats.lifetimePets += increment; statsChanged = true; }
+    if (type === 'fish_served')            { stats.lifetimeFish += increment; statsChanged = true; }
+    if (type === 'coins_collected')        { stats.lifetimeCoins += increment; statsChanged = true; }
+    if (type === 'ball_catches')           { stats.lifetimeBallCatches += increment; statsChanged = true; }
+    if (type === 'google_visits')          { stats.lifetimeGoogleVisits += increment; statsChanged = true; }
+    if (type === 'google_searches')        { stats.lifetimeGoogleSearches += increment; statsChanged = true; }
+    if (type === 'google_active_seconds')  { stats.lifetimeGoogleSeconds += increment; statsChanged = true; }
 
     state.quests.forEach((quest) => {
       if (quest.type !== type || quest.completed) return;
