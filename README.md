@@ -19,9 +19,14 @@
 
 <br/>
 
-> [!WARNING]
-> **Official Chrome Version Notice**: The version currently listed on the Chrome Web Store is an unauthorized copy uploaded without permission. An official Chrome release is in progress. For now, please download and install the official Chrome build directly from our [Releases](https://github.com/KINGS-MZ/PixelCat/releases) page.
-
+## ❯ `chrome_notice.ts`
+```ts
+const ChromeStoreNotice = {
+  warning: "The current Chrome Web Store listing is an unauthorized copy.",
+  officialRelease: "Coming soon under the official developer account.",
+  verifiedBuilds: "Download directly from GitHub Releases: https://github.com/KINGS-MZ/PixelCat/releases"
+};
+```
 <br/>
 
 ## ❯ `features.ts`
