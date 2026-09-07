@@ -15,7 +15,7 @@
 </p>
 <br/>
 
-> A playful pixel-art pet companion for your browser across YouTube, Google, and the web. Features cats, foxes, red pandas, baby cats, hedgehogs, snakes, bats, frogs, skeletons, zombies, and Clippy! Includes interactive ball props, collectibles, speech bubbles, quests, and a complete progression system. Everything runs 100% locally. Nothing leaves your browser.
+> A playful pixel-art pet companion that roams across your browser. Features 13+ unique pets, interactive ball props, collectibles, quests, and a progression system. 100% local, private, and offline.
 
 <br/>
 
