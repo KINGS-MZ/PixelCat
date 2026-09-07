@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Firefox-supported-orange?style=for-the-badge&logo=firefox-browser&logoColor=white"/>
   <img src="https://img.shields.io/badge/Chrome%20-Supported-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Version-2.7.0-blue?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge"/>
 </p>
 <p align="center">
@@ -14,19 +15,28 @@
 </p>
 <br/>
 
-> A pixel-art pet companion for YouTube and Google, with cats, foxes, animations, collectibles, bubbles, quests, and a full progression system. More supported websites may be added over time. Everything runs locally. Nothing leaves your browser.
+> A playful pixel-art pet companion for your browser across YouTube, Google, and the web. Features cats, foxes, red pandas, baby cats, hedgehogs, snakes, bats, frogs, skeletons, zombies, and Clippy! Includes interactive ball props, collectibles, speech bubbles, quests, and a complete progression system. Everything runs 100% locally. Nothing leaves your browser.
+
+<br/>
+
+> [!WARNING]
+> **Official Chrome Version Notice**: The version currently listed on the Chrome Web Store is an unauthorized copy uploaded without permission. An official Chrome release is in progress. For now, please download and install the official Chrome build directly from our [Releases](https://github.com/KINGS-MZ/PixelCat/releases) page.
 
 <br/>
 
 ## ❯ `features.ts`
 ```ts
 const PixelCat = {
-  animations: ["idle", "walk", "run", "jump", "sleep", "sit", "attack"],
-  collectibles: ["coins", "fish", "balls"],
+  pets: [
+    "cat", "fox", "red_panda", "baby_cat", "hedgehog", "snake",
+    "pigeon", "penguin", "frog", "bat", "skeleton", "zombie", "clippy"
+  ],
+  animations: ["idle", "walk", "run", "jump", "sleep", "sit", "attack", "wall_climb"],
+  collectibles: ["coins", "fish", "balls", "hats", "boosts"],
+  interactiveProps: ["basketball_hoop", "bowling_pins"],
   enemies: ["spiders"],
-  extras: ["portals", "quests", "achievements", "shop", "stats"],
-  skins: ["white", "orange", "rainbow"],
-  languages: ["English", "French", "Arabic"],
+  extras: ["portals", "quests", "achievements", "shop", "stats", "sandbox_mode"],
+  languages: ["English", "French", "Italian", "Arabic"],
   privacy: "local-only"
 };
 ```
@@ -37,10 +47,12 @@ const PixelCat = {
   <img src="https://img.shields.io/badge/Level%202-Speech%20%26%20Balls-ff9a3c?style=for-the-badge&labelColor=1a1a1a"/>
   <img src="https://img.shields.io/badge/Level%203-Rainbow%20Skin%20%26%20Spiders-e05252?style=for-the-badge&labelColor=1a1a1a"/>
   <img src="https://img.shields.io/badge/Level%204-Size%20Control-4ecbff?style=for-the-badge&labelColor=1a1a1a"/>
-  <img src="https://img.shields.io/badge/Level%205-Companion-0075ca?style=for-the-badge&labelColor=1a1a1a"/>
-  <img src="https://img.shields.io/badge/Level%206-Mischief-ff69b4?style=for-the-badge&labelColor=1a1a1a"/>
+  <img src="https://img.shields.io/badge/Level%205-Companion%20Mode-0075ca?style=for-the-badge&labelColor=1a1a1a"/>
+  <img src="https://img.shields.io/badge/Level%206-Page%20Mischief-ff69b4?style=for-the-badge&labelColor=1a1a1a"/>
   <img src="https://img.shields.io/badge/Level%207-Portals-8A2BE2?style=for-the-badge&labelColor=1a1a1a"/>
+  <img src="https://img.shields.io/badge/Level%208-Hyper%20Energy-e05252?style=for-the-badge&labelColor=1a1a1a"/>
 </p>
+<br/>
 
 ## ❯ `privacy`
 ```ts
@@ -62,23 +74,39 @@ const Privacy = {
 Firefox:
 1. Go to about:debugging → This Firefox
 2. Click "Load Temporary Add-on"
-3. Select manifest.json from the Firefox build
+3. Select manifest.json from the PixelCat-firefox folder (or load the packaged zip)
 
 Chrome:
 1. Go to chrome://extensions
-2. Enable Developer mode
+2. Enable Developer mode (top right)
 3. Click "Load unpacked"
-4. Select the extracted Chrome MV3 build folder
+4. Select the PixelCat-chrome folder
 ```
 <br/>
 
-## ❯ `changelog_2.5.6`
+## ❯ `changelog_2.7.0`
 ```ts
-const Version_2_5_6 = {
-  added: ["Google support", "Google quests", "Fox companion", "Fox skins", "Right-click menu"],
-  fixed: ["progress reset", "XP saving", "Eco Mode restore", "bubble/menu issues", "Google movement"],
-  improved: ["popup performance", "badge size", "quest scaling", "fox behavior", "local progress safety"],
-  permissions: ["added <all_urls> for gradual multi-site support"]
+const Version_2_7_0 = {
+  added: [
+    "Baby Cat, Hedgehog & Snake companions",
+    "Interactive Basketball Hoop with dynamic cloth net physics",
+    "Interactive Bowling Pins for bowling ball play",
+    "UI Size scaling control in Settings",
+    "Italian language support",
+    "Modern vector UI icons"
+  ],
+  improved: [
+    "Active mode running speed & movement cadence",
+    "Soap bubble collision & mutual contact popping",
+    "Companion coin collection assistance",
+    "Organic coin drop intervals",
+    "Shop pagination & lock status indicators"
+  ],
+  fixed: [
+    "Progress persistence & data migration safety",
+    "Page mischief toggle behavior in Sandbox mode",
+    "Allowlist mode toggle initialization"
+  ]
 };
 ```
 <br/>
@@ -88,7 +116,7 @@ const Version_2_5_6 = {
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/Author-IMAD%20EL%20KHAIDER-blueviolet?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Version-2.5.6-blue?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Version-2.7.0-blue?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/License-MIT-lightgrey?style=for-the-badge"/>
 </p>
